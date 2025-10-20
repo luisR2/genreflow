@@ -1,0 +1,69 @@
+[project]
+name = "genreflow"
+version = "0.1.0"
+description = "Kubernetes-native music genre classifier (FastAPI + ONNX/TFLite)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Your Name" }]
+license = { text = "MIT" }
+
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "numpy",
+  "scipy",
+  "librosa",
+  "soundfile",
+  "pydantic>=2",
+  "requests",
+  "prometheus-client",
+  # choose ONE inference stack initially; swap later if needed:
+  # "onnxruntime",          # amd64
+  # "onnxruntime-aarch64",  # arm64 (Pi) – pin in a separate lock if needed
+  # "torch", "torchaudio",  # if you serve Torch directly
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "ruff",
+  "mypy",
+  "httpx",        # API tests
+  "types-requests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Enable Ruff’s formatter (Black-compatible)
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# Optional: extend Ruff’s rule set
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "C4", "D"]
+ignore = ["D203", "D212"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-q"
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
+
+# Poetry config
+[tool.poetry]
+packages = [{ include = "server" }, { include = "model" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+mypy = "*"
+httpx = "*"
+types-requests = "*"
