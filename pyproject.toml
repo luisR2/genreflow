@@ -1,11 +1,11 @@
 [project]
 name = "genreflow"
 version = "0.1.0"
-description = "Kubernetes-native music genre classifier (FastAPI + ONNX/TFLite)"
+description = "Kubernetes-native music genre classifier"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Your Name" }]
-license = { text = "MIT" }
+authors = [{ name = "Luis Rodriguez" }]
+license = "MIT"
 
 dependencies = [
   "fastapi",
@@ -17,21 +17,9 @@ dependencies = [
   "pydantic>=2",
   "requests",
   "prometheus-client",
-  # choose ONE inference stack initially; swap later if needed:
-  # "onnxruntime",          # amd64
-  # "onnxruntime-aarch64",  # arm64 (Pi) – pin in a separate lock if needed
-  # "torch", "torchaudio",  # if you serve Torch directly
 ]
 
-[project.optional-dependencies]
-dev = [
-  "pytest",
-  "pytest-cov",
-  "ruff",
-  "mypy",
-  "httpx",        # API tests
-  "types-requests",
-]
+
 
 [tool.ruff]
 line-length = 100
@@ -58,7 +46,7 @@ build-backend = "poetry.core.masonry.api"
 
 # Poetry config
 [tool.poetry]
-packages = [{ include = "server" }, { include = "model" }]
+package-mode = false
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
