@@ -2,7 +2,7 @@
 A production-grade music genre classifier that serves predictions via FastAPI
 
 **GenreFlow** is a Kubernetes-native music genre classifier built with **FastAPI**, **Docker**, and **Helm**.  
-It runs on a **k3s Raspberry Pi cluster** and in the cloud, serving predictions for uploaded files or Spotify tracks (via 30-second previews).  
+It runs on a **k3s Raspberry Pi cluster**, serving predictions for uploaded files or Spotify tracks (via 30-second previews).  
 
 > 🚧 *Work in progress – early setup phase (Milestone 0)*
 

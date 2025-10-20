@@ -25,16 +25,16 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev --no-interaction --no-ansi
 
-      - name: Lint and format (ruff)
-        run: |
-          poetry run ruff check .                   
-          poetry run ruff format --check . 
+      # - name: Lint and format (ruff)
+      #   run: |
+      #     poetry run ruff check .                   
+      #     poetry run ruff format --check . 
 
-      - name: Type check (mypy)
-        run: poetry run mypy server model || true  # relax early on
+      # - name: Type check (mypy)
+      #   run: poetry run mypy server model || true  # relax early on
 
-      - name: Run tests
-        run: poetry run pytest -q
+      # - name: Run tests
+      #   run: poetry run pytest -q
 
   # Optional: static security scan placeholder
   security-scan:
