@@ -4,10 +4,15 @@
 .PHONY: install list check update run dev shell test lint venv help
 
 # Command to run inside the Poetry environment (override when calling: make run CMD="python -m server")
-CMD ?= python -m server
+CMD ?= uvicorn server.app:app --port 8080
 
 # Dev server command (override with: make dev CMD_DEV="uvicorn server:app --reload")
-CMD_DEV ?= uvicorn server:app --reload
+CMD_DEV ?= uvicorn server.app:app --reload --port 8080
+ 
+# Server host used by the predict-file curl helper (can be overridden on the make command line)
+HOST ?= http://127.0.0.1:8080
+# Default top-k for predictions (can be overridden: make predict-file FILE=... TOP_K=5)
+TOP_K ?= 3
 
 # Pytest arguments (override with: make test PYTEST_ARGS="-q -k smoke")
 PYTEST_ARGS ?= -q
@@ -34,15 +39,24 @@ test:
 	poetry run pytest $(PYTEST_ARGS)
 
 lint:
-	poetry run ruff check . || poetry run flake8 .
+	poetry run ruff check .
 
 venv:
-	@if [ -n "$(PYTHON)" ]; then \
-		echo "Setting poetry environment Python to $(PYTHON)"; \
-		poetry env use $(PYTHON); \
-	else \
-		poetry env info --path || echo "No virtualenv found. Run 'make install' or 'make shell' to create one."; \
+	@poetry env info --path || (echo "No virtualenv found. Run 'make install' first." && exit 1)
+
+shell:
+	@echo "Activating Poetry shell... (use 'exit' to deactivate)"
+	@poetry shell
+
+# Upload a local audio file to the /predict/file endpoint.
+# Usage: make predict-file FILE=/path/to/song.wav [TOP_K=3] [HOST=http://127.0.0.1:8080]
+predict-file:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make predict-file FILE=/path/to/song.wav [TOP_K=3] [HOST=http://127.0.0.1:8080]"; \
+		exit 1; \
 	fi
+	@echo "Uploading $(FILE) to $(HOST)/predict/file?top_k=$(TOP_K) ..."
+	@curl -F "file=@$(FILE)" "$(HOST)/predict/file?top_k=$(TOP_K)" || (echo "curl failed" && exit 2)
 
 help:
 	@echo "Available targets:"
@@ -56,5 +70,6 @@ help:
 	@echo "  make test        -> run tests via pytest (poetry run pytest $(PYTEST_ARGS))"
 	@echo "  make lint        -> run ruff to lint the repository (poetry run ruff check .)"
 	@echo "  make venv PYTHON=.. -> show poetry venv path or set the environment Python (poetry env use $(PYTHON))"
+	@echo "  make predict-file FILE=.. -> predict genre for an audio file (optional: TOP_K=3, HOST=$(HOST))"
 	@echo "  make help        -> show this help message"
 
