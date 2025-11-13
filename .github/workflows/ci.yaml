@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev --no-interaction --no-ansi
 
+      - name: Build Docker image
+        run: docker build -t genreflow/server:ci -f docker/Dockerfile .
+
       # - name: Lint and format (ruff)
       #   run: |
       #     poetry run ruff check .                   
