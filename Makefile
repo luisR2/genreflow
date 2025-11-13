@@ -1,7 +1,7 @@
 
 # Common Poetry targets
 # Phony targets
-.PHONY: install list check update run dev shell test lint venv help
+.PHONY: install list check update run dev shell test lint venv help docker-build docker-run
 
 # Command to run inside the Poetry environment (override when calling: make run CMD="python -m server")
 CMD ?= uvicorn server.app:app --port 8080
@@ -13,6 +13,10 @@ CMD_DEV ?= uvicorn server.app:app --reload --port 8080
 HOST ?= http://127.0.0.1:8080
 # Default top-k for predictions (can be overridden: make predict-file FILE=... TOP_K=5)
 TOP_K ?= 3
+
+# Docker image configuration
+IMAGE_NAME ?= genreflow/server
+CONTAINER_NAME ?= genreflow-api
 
 # Pytest arguments (override with: make test PYTEST_ARGS="-q -k smoke")
 PYTEST_ARGS ?= -q
@@ -40,6 +44,9 @@ test:
 
 lint:
 	poetry run ruff check .
+
+format:
+	poetry run ruff format .
 
 venv:
 	@poetry env info --path || (echo "No virtualenv found. Run 'make install' first." && exit 1)
@@ -70,6 +77,13 @@ help:
 	@echo "  make test        -> run tests via pytest (poetry run pytest $(PYTEST_ARGS))"
 	@echo "  make lint        -> run ruff to lint the repository (poetry run ruff check .)"
 	@echo "  make venv PYTHON=.. -> show poetry venv path or set the environment Python (poetry env use $(PYTHON))"
+	@echo "  make docker-run  -> build and run the Docker image (IMAGE_NAME=$(IMAGE_NAME), CONTAINER_NAME=$(CONTAINER_NAME))"
 	@echo "  make predict-file FILE=.. -> predict genre for an audio file (optional: TOP_K=3, HOST=$(HOST))"
 	@echo "  make help        -> show this help message"
+
+docker-build:
+	docker build -t $(IMAGE_NAME) -f docker/Dockerfile .
+
+docker-run: docker-build
+	docker run --rm -p 8080:8080 --name $(CONTAINER_NAME) $(IMAGE_NAME)
 
