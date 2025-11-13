@@ -101,6 +101,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-q"
+pythonpath = ["."]
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]
