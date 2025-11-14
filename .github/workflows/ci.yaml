@@ -9,7 +9,7 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     env:
-      IMAGE_NAME: genreflow/server
+      IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/genreflow-server
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,7 +49,6 @@ jobs:
             docker tag "$IMAGE_NAME:$IMAGE_TAG" "$IMAGE_NAME:latest"
           fi
 
-      # Option 1: GitHub Secrets (recommended - simplest)
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
