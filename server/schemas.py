@@ -5,7 +5,7 @@ The classes and types remain here for future use,
 but active responses will focus on BPM values for individual or bulk (playlist) analysis.
 """
 
-from typing import Literal, list
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
