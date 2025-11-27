@@ -148,11 +148,7 @@ class Predictor:
             y = np.pad(y, (0, pad_length))
 
         # Extract windows with no overlap
-        windows = [
-            y[i : i + win_samples]
-            for i in range(0, len(y), win_samples)
-            if i + win_samples <= len(y)
-        ]
+        windows = [y[i : i + win_samples] for i in range(0, len(y), win_samples) if i + win_samples <= len(y)]
 
         logger.debug(f"Split audio into {len(windows)} windows of {length_s}s each")
         return windows
@@ -264,14 +260,13 @@ class Predictor:
             if seg.size < win // 2:
                 continue
 
-            oenv = librosa.onset.onset_strength(
-                y=seg, sr=sr, hop_length=hop_length, aggregate=np.median
-            )
+            oenv = librosa.onset.onset_strength(y=seg, sr=sr, hop_length=hop_length, aggregate=np.median)
             if oenv.size < 8 or not np.isfinite(oenv).all():
                 continue
 
             # Use compat tempo function
             from librosa.feature import rhythm  # librosa >= 0.10
+
             tempo = rhythm.tempo(
                 onset_envelope=oenv,
                 sr=sr,

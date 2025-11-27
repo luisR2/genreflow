@@ -2,7 +2,7 @@
 [tool.poetry]
 name = "genreflow"
 version = "0.1.0"
-description = "Kubernetes-native music genre classifier"
+description = "Kubernetes-native music BPM and genre classifier"
 authors = ["Luis Rodriguez"]
 license = "MIT"
 readme = "README.md"
@@ -29,11 +29,16 @@ ruff = "*"
 mypy = "*"
 httpx = "*"
 types-requests = "*"
+black = "^25.11.0"
 
 [tool.ruff]
-line-length = 100
+line-length = 110
 target-version = "py311"
 src = ["server"]
+
+[tool.black]
+line-length = 110
+target-version = ["py311"]
 
 # Enable Ruff's formatter (Black-compatible)
 [tool.ruff.format]
@@ -106,4 +111,3 @@ pythonpath = ["."]
 [build-system]
 requires = ["poetry-core>=1.9.0"]
 build-backend = "poetry.core.masonry.api"
-

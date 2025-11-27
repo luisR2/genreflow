@@ -1,11 +1,11 @@
 """Routes for file-based genre prediction."""
+
 import logging
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
-from pydantic import conint
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from server.predict import Predictor
-from server.schemas import BPMResult, BPMBulkResponse
+from server.schemas import BPMResult
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ SUPPORTED_AUDIO_EXTENSIONS = (".wav", ".flac", ".mp3", ".aiff")
 
 router = APIRouter(prefix="/predict", tags=["predict"])
 _predictor = Predictor.load()
+
 
 @router.post("/file", response_model=BPMResult, status_code=status.HTTP_200_OK)
 async def predict_file(

@@ -1,12 +1,13 @@
 """Pydantic models for API requests and responses.
 
-NOTE: Genre prediction fields are currently commented out/paused as we focus on BPM analysis only. The classes and types remain here for future use, but active responses will focus on BPM values for individual or bulk (playlist) analysis.
+NOTE: Genre prediction fields are currently commented out/paused as we focus on BPM analysis only.
+The classes and types remain here for future use,
+but active responses will focus on BPM values for individual or bulk (playlist) analysis.
 """
 
-from typing import Literal
+from typing import Literal, list
 
 from pydantic import BaseModel, Field
-from typing import List, Optional
 
 # -- Genre prediction classes are NOT in current use, but preserved for future --
 # class GenrePrediction(BaseModel):
@@ -30,17 +31,21 @@ from typing import List, Optional
 
 # -- Active response schemas for BPM-only analysis. --
 
+
 class BPMResult(BaseModel):
     """BPM analysis result for a single song."""
+
     filename: str
-    bpm: Optional[float] = Field(
+    bpm: float | None = Field(
         None,
-        description="Estimated tempo in BPM (beats per minute). May be None if tempo could not be analyzed."
+        description="Estimated tempo in BPM (beats per minute). May be None if tempo could not be analyzed.",
     )
+
 
 class BPMBulkResponse(BaseModel):
     """Response schema for multiple (playlist) BPM analyses."""
+
     source: Literal["file", "playlist"] = "file"
-    results: List[BPMResult] = Field(
+    results: list[BPMResult] = Field(
         ..., description="List of BPM analysis results for each submitted file or item."
     )
