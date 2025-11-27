@@ -1,10 +1,13 @@
 """Routes for file-based genre prediction."""
+import logging
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from pydantic import conint
 
 from server.predict import Predictor
-from server.schemas import PredictionResponse, PredictionResult
+from server.schemas import BPMResult, BPMBulkResponse
+
+logger = logging.getLogger(__name__)
 
 # Constants
 SUPPORTED_AUDIO_EXTENSIONS = (".wav", ".flac", ".mp3", ".aiff")
@@ -12,20 +15,17 @@ SUPPORTED_AUDIO_EXTENSIONS = (".wav", ".flac", ".mp3", ".aiff")
 router = APIRouter(prefix="/predict", tags=["predict"])
 _predictor = Predictor.load()
 
-
-@router.post("/file", response_model=PredictionResponse, status_code=status.HTTP_200_OK)
+@router.post("/file", response_model=BPMResult, status_code=status.HTTP_200_OK)
 async def predict_file(
     file: UploadFile = File(...),
-    top_k: conint(ge=1, le=10) = Query(3, description="Number of top predictions to return"),
-) -> PredictionResponse:
-    """Predict music genre from an audio file.
+) -> BPMResult:
+    """Analyze BPM from an audio file and return a BPMResult.
 
     Args:
         file: Audio file to analyze (WAV, FLAC, OGG, or MP3)
-        top_k: Number of top genre predictions to return (1-10)
 
     Returns:
-        PredictionResponse: Predicted genres and their confidence scores
+        BPMResult: Estimated tempo for the file (in BPM)
 
     Raises:
         HTTPException: If file type is unsupported or processing fails
@@ -38,18 +38,13 @@ async def predict_file(
                 f"{', '.join(ext.upper()[1:] for ext in SUPPORTED_AUDIO_EXTENSIONS)}"
             ),
         )
-
     try:
         data = await file.read()
-        result: PredictionResult = _predictor.predict_bytes(data, top_k=top_k)
-        # Convert to plain data to avoid nested Pydantic-instance validation issues
-        resp = {
-            "source": "file",
-            "filename": file.filename,
-            **result.model_dump(),
-        }
-        return PredictionResponse.model_validate(resp)
+        # Just get BPMResult with filename
+        result: BPMResult = _predictor.predict_bytes(data, filename=file.filename)
+        return result
     except Exception as e:
+        logger.info(f"Failed to process audio: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to process audio: {str(e)}"
         )

@@ -1,7 +1,7 @@
 
 # Common Poetry targets
 # Phony targets
-.PHONY: install list check update run dev shell test lint venv help docker-build docker-run
+.PHONY: install list check update run dev shell test lint venv help docker-build docker-run docker-push docker-login
 
 # Command to run inside the Poetry environment (override when calling: make run CMD="python -m server")
 CMD ?= uvicorn server.app:app --port 8080
@@ -15,8 +15,12 @@ HOST ?= http://127.0.0.1:8080
 TOP_K ?= 3
 
 # Docker image configuration
-IMAGE_NAME ?= genreflow/server
+# IMPORTANT: Set DOCKERHUB_USERNAME to your Docker Hub username
+# Usage: make docker-push DOCKERHUB_USERNAME=yourusername
+DOCKERHUB_USERNAME ?= luisrr
+IMAGE_NAME ?= $(DOCKERHUB_USERNAME)/genreflow-server
 CONTAINER_NAME ?= genreflow-api
+IMAGE_TAG ?= latest
 
 # Pytest arguments (override with: make test PYTEST_ARGS="-q -k smoke")
 PYTEST_ARGS ?= -q
@@ -77,13 +81,32 @@ help:
 	@echo "  make test        -> run tests via pytest (poetry run pytest $(PYTEST_ARGS))"
 	@echo "  make lint        -> run ruff to lint the repository (poetry run ruff check .)"
 	@echo "  make venv PYTHON=.. -> show poetry venv path or set the environment Python (poetry env use $(PYTHON))"
-	@echo "  make docker-run  -> build and run the Docker image (IMAGE_NAME=$(IMAGE_NAME), CONTAINER_NAME=$(CONTAINER_NAME))"
+	@echo "  make docker-build -> build the Docker image (IMAGE_NAME=$(IMAGE_NAME), IMAGE_TAG=$(IMAGE_TAG))"
+	@echo "  make docker-run   -> build and run the Docker image (IMAGE_NAME=$(IMAGE_NAME), CONTAINER_NAME=$(CONTAINER_NAME))"
+	@echo "  make docker-login -> log in to Docker Hub (interactive)"
+	@echo "  make docker-push DOCKERHUB_USERNAME=... [IMAGE_TAG=...] -> build and push to Docker Hub"
 	@echo "  make predict-file FILE=.. -> predict genre for an audio file (optional: TOP_K=3, HOST=$(HOST))"
-	@echo "  make help        -> show this help message"
+	@echo "  make help         -> show this help message"
 
 docker-build:
-	docker build -t $(IMAGE_NAME) -f docker/Dockerfile .
+	docker buildx build --platform linux/arm64 -t $(IMAGE_NAME) -f docker/Dockerfile .
 
 docker-run: docker-build
-	docker run --rm -p 8080:8080 --name $(CONTAINER_NAME) $(IMAGE_NAME)
+	docker run --rm -p 8080:8080 -d --name $(CONTAINER_NAME) $(IMAGE_NAME):$(IMAGE_TAG)
+
+docker-stop:
+	docker stop $(CONTAINER_NAME)
+
+docker-login:
+	@echo "Logging in to Docker Hub..."
+	@docker login
+
+docker-push: docker-build
+	@if [ -z "$(DOCKERHUB_USERNAME)" ] || [ "$(DOCKERHUB_USERNAME)" = "" ]; then \
+		echo "ERROR: DOCKERHUB_USERNAME not set!"; \
+		echo "Usage: make docker-push DOCKERHUB_USERNAME=yourusername"; \
+		exit 1; \
+	fi
+	@echo "Pushing $(IMAGE_NAME):$(IMAGE_TAG) to Docker Hub..."
+	@docker push $(IMAGE_NAME):$(IMAGE_TAG)
 

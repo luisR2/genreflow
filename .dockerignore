@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.so
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.DS_Store
+
+# VCS and tooling
+.git
+.gitignore
+.vscode/
+.idea/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+coverage*
+htmlcov/

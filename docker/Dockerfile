@@ -14,20 +14,27 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
         build-essential \
-        curl \
         ffmpeg \
-        libsndfile1 && \
+        libsndfile1 \
+        libmagic1 \
+        file && \
     rm -rf /var/lib/apt/lists/*
+
+RUN addgroup --system app && adduser --system --ingroup app app
 
 # Install Poetry and project dependencies
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
 COPY pyproject.toml poetry.lock* /app/
 RUN poetry install --without dev --no-root --no-ansi
+# Remove build tools to slim the image
+RUN apt-get purge -y build-essential && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # Copy application code
-COPY . /app
+COPY --chown=app:app . /app
 
 EXPOSE 8080
+
+USER app
 
 CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8080"]
