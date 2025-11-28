@@ -20,7 +20,7 @@ RUN apt-get update && \
         file && \
     rm -rf /var/lib/apt/lists/*
 
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup --system --gid 1000 app && adduser --system --uid 1000 --ingroup app app
 
 # Install Poetry and project dependencies
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
@@ -35,6 +35,6 @@ COPY --chown=app:app . /app
 
 EXPOSE 8080
 
-USER app
+USER 1000:1000
 
 CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8080"]
