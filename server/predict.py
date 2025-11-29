@@ -220,6 +220,15 @@ class Predictor:
             return float("nan")
 
     async def predict_bytes(self, audio_bytes: bytes, filename: str = "unknown") -> BPMResult:
+        """Analyze BPM from audio file bytes. Ignores genre analysis.
+
+        Args:
+            audio_bytes: Raw audio file bytes
+            filename: Name of the uploaded/processed file
+
+        Returns:
+            BPMResult: Tempo analysis result
+        """
         # Offload blocking I/O and CPU work to thread
         import asyncio
         y, _ = await asyncio.to_thread(self._load_audio, audio_bytes)
