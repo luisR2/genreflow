@@ -231,6 +231,7 @@ class Predictor:
         """
         # Offload blocking I/O and CPU work to thread
         import asyncio
+
         y, _ = await asyncio.to_thread(self._load_audio, audio_bytes)
         bpm = await asyncio.to_thread(Predictor.estimate_bpm, y, sr=self.sr)
         return BPMResult(filename=filename, bpm=bpm)
