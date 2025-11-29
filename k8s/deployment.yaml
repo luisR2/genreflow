@@ -31,7 +31,7 @@ spec:
       containers:
         - name: genreflow
           image: luisrr/genreflow-server:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http
