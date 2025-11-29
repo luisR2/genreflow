@@ -63,14 +63,14 @@ shell:
 	@poetry shell
 
 # Upload a local audio file to the /predict/file endpoint.
-# Usage: make predict-file FILE=/path/to/song.wav [TOP_K=3] [HOST=http://127.0.0.1:8080]
+# Usage: make predict-file FILE=/path/to/song.wav [HOST=http://127.0.0.1:8080]
 predict-file:
 	@if [ -z "$(FILE)" ]; then \
-		echo "Usage: make predict-file FILE=/path/to/song.wav [TOP_K=3] [HOST=http://127.0.0.1:8080]"; \
+		echo "Usage: make predict-file FILE=/path/to/song.wav [HOST=http://127.0.0.1:8080]"; \
 		exit 1; \
 	fi
-	@echo "Uploading $(FILE) to $(HOST)/predict/file?top_k=$(TOP_K) ..."
-	@curl -F "file=@$(FILE)" "$(HOST)/predict/file?top_k=$(TOP_K)" || (echo "curl failed" && exit 2)
+	@echo "Uploading $(FILE) to $(HOST)/predict/file ..."
+	@curl -F "file=@$(FILE)" "$(HOST)/predict/file" || (echo "curl failed" && exit 2)
 
 help:
 	@echo "Available targets:"
@@ -114,3 +114,6 @@ docker-push: docker-build
 	fi
 	@echo "Pushing $(IMAGE_NAME):$(IMAGE_TAG) to Docker Hub..."
 	@docker push $(IMAGE_NAME):$(IMAGE_TAG)
+
+
+#TODO: Add a target to kubeseal the docker hub secret before pushing the YAML to GitHub.

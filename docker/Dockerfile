@@ -6,6 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=false \
     POETRY_HOME=/opt/poetry \
+    NUMBA_CACHE_DIR=/tmp/numba_cache \
     PATH="/opt/poetry/bin:${PATH}"
 
 WORKDIR /app
@@ -21,6 +22,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1000 app && adduser --system --uid 1000 --ingroup app app
+RUN mkdir -p /tmp/numba_cache && chown app:app /tmp/numba_cache
 
 # Install Poetry and project dependencies
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
