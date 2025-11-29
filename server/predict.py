@@ -219,18 +219,11 @@ class Predictor:
             logger.error(f"Failed to estimate BPM: {e}")
             return float("nan")
 
-    def predict_bytes(self, audio_bytes: bytes, filename: str = "unknown") -> BPMResult:
-        """Analyze BPM from audio file bytes. Ignores genre analysis.
-
-        Args:
-            audio_bytes: Raw audio file bytes
-            filename: Name of the uploaded/processed file
-
-        Returns:
-            BPMResult: Tempo analysis result
-        """
-        y, _ = self._load_audio(audio_bytes)
-        bpm = Predictor.estimate_bpm(y, sr=self.sr)
+    async def predict_bytes(self, audio_bytes: bytes, filename: str = "unknown") -> BPMResult:
+        # Offload blocking I/O and CPU work to thread
+        import asyncio
+        y, _ = await asyncio.to_thread(self._load_audio, audio_bytes)
+        bpm = await asyncio.to_thread(Predictor.estimate_bpm, y, sr=self.sr)
         return BPMResult(filename=filename, bpm=bpm)
 
     @staticmethod

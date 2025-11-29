@@ -41,8 +41,8 @@ async def predict_file(
         )
     try:
         data = await file.read()
-        # Just get BPMResult with filename
-        result: BPMResult = _predictor.predict_bytes(data, filename=file.filename)
+        # Await async predictor
+        result: BPMResult = await _predictor.predict_bytes(data, filename=file.filename)
         return result
     except Exception as e:
         logger.info(f"Failed to process audio: {str(e)}")
