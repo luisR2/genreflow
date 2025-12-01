@@ -40,6 +40,7 @@ class BPMResult(BaseModel):
         None,
         description="Estimated tempo in BPM (beats per minute). May be None if tempo could not be analyzed.",
     )
+    analysis_time: float = Field(..., description="Time taken to analyze the audio in seconds.")
 
 
 class BPMBulkResponse(BaseModel):
@@ -49,3 +50,4 @@ class BPMBulkResponse(BaseModel):
     results: list[BPMResult] = Field(
         ..., description="List of BPM analysis results for each submitted file or item."
     )
+    analysis_time: float = Field(..., description="Time taken to analyze the audio in seconds.")

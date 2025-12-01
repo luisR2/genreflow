@@ -11,8 +11,10 @@ Note: Currently uses a heuristic model. Will be replaced with ONNX/TFLite later.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -229,12 +231,11 @@ class Predictor:
         Returns:
             BPMResult: Tempo analysis result
         """
-        # Offload blocking I/O and CPU work to thread
-        import asyncio
-
+        start_time = time.monotonic()
         y, _ = await asyncio.to_thread(self._load_audio, audio_bytes)
         bpm = await asyncio.to_thread(Predictor.estimate_bpm, y, sr=self.sr)
-        return BPMResult(filename=filename, bpm=bpm)
+        analysis_time = time.monotonic() - start_time
+        return BPMResult(filename=filename, bpm=bpm, analysis_time=analysis_time)
 
     @staticmethod
     def estimate_bpm(
