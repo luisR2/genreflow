@@ -4,10 +4,10 @@
 .PHONY: install list check update run dev shell test lint format black venv help docker-build docker-run docker-push docker-login
 
 # Command to run inside the Poetry environment (override when calling: make run CMD="python -m server")
-CMD ?= uvicorn server.app:app --port 8080
+CMD ?= uvicorn server.app:app --port 8080 --log-config logging_config.json
 
 # Dev server command (override with: make dev CMD_DEV="uvicorn server:app --reload")
-CMD_DEV ?= uvicorn server.app:app --reload --port 8080
+CMD_DEV ?= uvicorn server.app:app --reload --port 8080 --log-config logging_config.json
  
 # Server host used by the predict-file curl helper (can be overridden on the make command line)
 HOST ?= http://127.0.0.1:8080
@@ -23,7 +23,7 @@ CONTAINER_NAME ?= genreflow-api
 IMAGE_TAG ?= latest
 
 # Pytest arguments (override with: make test PYTEST_ARGS="-q -k smoke")
-PYTEST_ARGS ?= -q
+PYTEST_ARGS ?= -raq
 
 install:
 	poetry install --with dev
@@ -72,6 +72,15 @@ predict-file:
 	@echo "Uploading $(FILE) to $(HOST)/predict/file ..."
 	@curl -F "file=@$(FILE)" "$(HOST)/predict/file" || (echo "curl failed" && exit 2)
 
+predict-files-bulk:
+	@if [ -z "$(FILES)" ] && [ -z "$(FILES_LIST)" ]; then \
+		echo "Usage: make predict-files-bulk FILES=\"/path/one.wav\\n/path/two.wav\" [HOST=$(HOST)]"; \
+		echo "   or: make predict-files-bulk FILES_LIST=/path/to/list.txt [HOST=$(HOST)]"; \
+		echo "FILES/FILES_LIST accept one path per line (preferred). Space-separated lists work if each path is quoted."; \
+		exit 1; \
+	fi
+	@HOST="$(HOST)" FILES="$(FILES)" FILES_LIST="$(FILES_LIST)" python3 scripts/predict_files_bulk.py || (echo "curl failed" && exit 2)
+
 help:
 	@echo "Available targets:"
 	@echo "  make install    -> create virtualenv and install dependencies via Poetry (with dev extras)"
@@ -91,6 +100,7 @@ help:
 	@echo "  make docker-login -> log in to Docker Hub (interactive)"
 	@echo "  make docker-push DOCKERHUB_USERNAME=... [IMAGE_TAG=...] -> build and push to Docker Hub"
 	@echo "  make predict-file FILE=.. -> predict genre for an audio file (optional: TOP_K=3, HOST=$(HOST))"
+	@echo "  make predict-files-bulk FILES=.. -> predict multiple audio files; supports FILES_LIST=path for long lists (optional: HOST=$(HOST))"
 	@echo "  make help         -> show this help message"
 
 docker-build:

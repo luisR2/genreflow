@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from server.logging_utils import configure_logging
 from server.routes_file import _predictor
 from server.routes_file import router as file_router
 
@@ -69,8 +70,7 @@ async def readyz() -> ReadinessResponse:
 @app.on_event("startup")
 async def startup_event() -> None:
     """Initialize resources on startup."""
-    # Add any startup initialization here
-    pass
+    configure_logging()
 
 
 @app.on_event("shutdown")
