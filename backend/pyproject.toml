@@ -5,7 +5,7 @@ version = "0.1.0"
 description = "Kubernetes-native music BPM and genre classifier"
 authors = ["Luis Rodriguez"]
 license = "MIT"
-readme = "README.md"
+readme = "../README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
@@ -34,7 +34,7 @@ black = "^25.11.0"
 [tool.ruff]
 line-length = 110
 target-version = "py311"
-src = ["server"]
+src = [".", "tests"]
 
 [tool.black]
 line-length = 110
@@ -106,7 +106,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-q"
-pythonpath = ["."]
+pythonpath = ["..", "."]
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

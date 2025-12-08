@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://github.com/luisR2/genreflow.git
     targetRevision: dev
-    path: k8s
+    path: k8s/backend
   destination:
     server: https://kubernetes.default.svc
     namespace: genreflow

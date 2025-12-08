@@ -23,7 +23,7 @@ import numpy as np
 import numpy.typing as npt
 import soundfile as sf
 
-from server.schemas import BPMResult
+from backend.app.schemas import BPMResult
 
 if TYPE_CHECKING:
     from pathlib import Path

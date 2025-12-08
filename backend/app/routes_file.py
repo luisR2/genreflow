@@ -4,8 +4,8 @@ import logging
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from server.predict import Predictor
-from server.schemas import BPMBulkResponse, BPMResult
+from backend.app.predict import Predictor
+from backend.app.schemas import BPMBulkResponse, BPMResult
 
 logger = logging.getLogger(__name__)
 

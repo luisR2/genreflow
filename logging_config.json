@@ -41,7 +41,7 @@
       "level": "INFO",
       "propagate": false
     },
-    "server": {
+    "backend": {
       "handlers": ["console"],
       "level": "INFO",
       "propagate": false

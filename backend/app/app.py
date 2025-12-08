@@ -5,9 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from server.logging_utils import configure_logging
-from server.routes_file import _predictor
-from server.routes_file import router as file_router
+from backend.app.logging_utils import configure_logging
+from backend.app.routes_file import _predictor
+from backend.app.routes_file import router as file_router
 
 
 class HealthResponse(BaseModel):

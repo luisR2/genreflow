@@ -4,8 +4,8 @@ import io
 
 import numpy as np
 import soundfile as sf
+from backend.app.app import app
 from fastapi.testclient import TestClient
-from server.app import app
 
 client = TestClient(app)
 

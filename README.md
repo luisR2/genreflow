@@ -52,23 +52,18 @@ GenreFlow will classify music into genres and expose a simple API (`/predict/fil
 
 ---
 
-## 🧩 Repository Layout (planned)
+## 🧩 Repository Layout
 ```
 genreflow/
-|
-├─ model/ # training & export scripts
-|
-├─ server/ # FastAPI app & inference
-|
-├─ docker/ # Dockerfile(s)
-|
-├─ k8s/helm/ # Helm chart
-|
-├─ .github/workflows/ # CI/CD pipelines
-|
-├─ scripts/ # utility scripts
-|
-├─Makefile # Make targets
-|
+├─ backend/              # Backend service (FastAPI + inference)
+│  ├─ app/               # Application code
+│  ├─ tests/             # Backend tests
+│  ├─ pyproject.toml     # Poetry config (backend-only)
+│  └─ Dockerfile         # Backend image
+├─ frontend/             # Frontend FastAPI static UI + Dockerfile
+├─ k8s/                  # Kubernetes manifests (argocd/, backend/, frontend/)
+├─ scripts/              # Utility scripts
+├─ logging_config.json   # Shared logging config (backend & frontend)
+├─ Makefile              # Common tasks
 └─ README.md
 ```

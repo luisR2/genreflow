@@ -8,8 +8,13 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     env:
-      IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/genreflow-server
+      BE_IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/genreflow-backend
+      FE_IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/genreflow-frontend
+      PYTHONPATH: ..
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,11 +34,11 @@ jobs:
 
       - name: Lint and format (ruff)
         run: |
-          poetry run ruff check .                   
-          poetry run ruff format --check . 
+          poetry run ruff check .
+          poetry run ruff format --check .
           
       - name: Type check (mypy)
-        run: poetry run mypy server model || true  # relax early on
+        run: poetry run mypy backend || true  # relax early on
 
       - name: Run tests
         run: poetry run pytest -q
@@ -50,17 +55,33 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push (arm64)
+      - name: Build and push backend (arm64)
+        working-directory: .
         run: |
           EXTRA_TAGS=""
           if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
-            EXTRA_TAGS="-t $IMAGE_NAME:latest"
+            EXTRA_TAGS="-t $BE_IMAGE_NAME:latest"
           fi
 
           docker buildx build --platform linux/arm64 \
-            -t "$IMAGE_NAME:$IMAGE_TAG" \
+            -t "$BE_IMAGE_NAME:$IMAGE_TAG" \
             $EXTRA_TAGS \
-            -f docker/Dockerfile \
+            -f backend/Dockerfile \
+            --push \
+            .
+
+      - name: Build and push frontend (arm64)
+        working-directory: .
+        run: |
+          EXTRA_TAGS=""
+          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            EXTRA_TAGS="-t $FE_IMAGE_NAME:latest"
+          fi
+
+          docker buildx build --platform linux/arm64 \
+            -t "$FE_IMAGE_NAME:$IMAGE_TAG" \
+            $EXTRA_TAGS \
+            -f frontend/Dockerfile \
             --push \
             .
 

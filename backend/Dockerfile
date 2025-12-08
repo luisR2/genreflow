@@ -27,16 +27,20 @@ RUN mkdir -p /tmp/numba_cache && chown app:app /tmp/numba_cache
 # Install Poetry and project dependencies
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
-COPY pyproject.toml poetry.lock* /app/
+WORKDIR /app/backend
+COPY backend/pyproject.toml backend/poetry.lock* ./
 RUN poetry install --without dev --no-root --no-ansi
+
 # Remove build tools to slim the image
 RUN apt-get purge -y build-essential && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
-# Copy application code
-COPY --chown=app:app . /app
+# Copy application code and shared logging config
+WORKDIR /app
+COPY --chown=app:app backend /app/backend
+COPY --chown=app:app logging_config.json /app/logging_config.json
 
 EXPOSE 8080
 
 USER 1000:1000
 
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "backend.app.app:app", "--host", "0.0.0.0", "--port", "8080", "--log-config", "/app/logging_config.json"]
