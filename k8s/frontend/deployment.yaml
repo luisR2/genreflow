@@ -34,7 +34,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: GENREFLOW_API_BASE_URL
-              value: http://genreflow-backend.genreflow-backend.svc.cluster.local
+              value: http://genreflow.local
           ports:
             - containerPort: 3000
               name: http
