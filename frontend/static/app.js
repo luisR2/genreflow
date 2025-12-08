@@ -157,3 +157,9 @@
 
   fetchConfig();
 })();
+
+
+// TODO: Add thinking icon when analysing songs
+
+// TODO: Change the color of the results box
+ 

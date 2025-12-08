@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 API_BASE_URL = os.getenv("GENREFLOW_API_BASE_URL", "http://localhost:8080").rstrip("/")
 FRONTEND_DIR = Path(__file__).parent
 STATIC_DIR = FRONTEND_DIR / "static"
-INDEX_FILE = FRONTEND_DIR / "index.html"
+INDEX_FILE = FRONTEND_DIR / "templates/index.html"
 
 app = FastAPI(
     title="GenreFlow UI",
