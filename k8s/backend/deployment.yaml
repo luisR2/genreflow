@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: genreflow
-  namespace: genreflow
+  namespace: genreflow-backend
   labels:
     app.kubernetes.io/name: genreflow
     app.kubernetes.io/component: api

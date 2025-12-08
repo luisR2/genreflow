@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: genreflow
-  namespace: genreflow
+  namespace: genreflow-backend
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
