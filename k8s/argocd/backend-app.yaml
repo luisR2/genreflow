@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: genreflow
+  name: genreflow-backend
   namespace: argocd
   labels:
     app.kubernetes.io/name: genreflow
@@ -16,7 +16,7 @@ spec:
     path: k8s/backend
   destination:
     server: https://kubernetes.default.svc
-    namespace: genreflow
+    namespace: genreflow-backend
   syncPolicy:
     automated:
       prune: true
