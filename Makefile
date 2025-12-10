@@ -98,11 +98,11 @@ predict-files-bulk:
 
 help:
 	@echo "Available targets:"
-	@echo "  make install    -> create virtualenv and install dependencies via Poetry (with dev extras)"
-	@echo "  make check      -> run 'poetry check' to validate pyproject.toml and lockfile"
-	@echo "  make update     -> update dependencies in pyproject.lock using Poetry"
+	@echo "  make install     -> create virtualenv and install dependencies via Poetry (with dev extras)"
+	@echo "  make check       -> run 'poetry check' to validate pyproject.toml and lockfile"
+	@echo "  make update      -> update dependencies in pyproject.lock using Poetry"
 	@echo "  make list        -> show dependency tree via 'poetry show --tree'"
-	@echo "  make run CMD=.. -> run a command inside Poetry's virtualenv (default: $(CMD))"
+	@echo "  make run CMD=..  -> run a command inside Poetry's virtualenv (default: $(CMD))"
 	@echo "  make dev CMD_DEV=.. -> run development server inside Poetry (default: $(CMD_DEV))"
 	@echo "  make frontend GENREFLOW_API_BASE_URL=.. -> run the frontend UI via uvicorn (default backend URL $(GENREFLOW_API_BASE_URL))"
 	@echo "  make shell       -> open an interactive Poetry shell (activates venv)"

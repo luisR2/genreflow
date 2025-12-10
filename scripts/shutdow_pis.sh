@@ -32,7 +32,7 @@ for node in "${NODES[@]}"; do
   echo "Shutting down $node ..."
   # Username == hostname, e.g. k8s-master@k8s-master
   ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "${node}@${node}" "${SHUTDOWN_CMD}" || {
-    echo "⚠️  Could not shut down ${node} (SSH unreachable or node offline)."
+    echo "Could not shut down ${node} (SSH unreachable or node offline)."
   }
 done
 
