@@ -1,5 +1,7 @@
 """FastAPI application entrypoint for the GenreFlow service."""
 
+import os
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -31,15 +33,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
-)
-
-# CORS configuration - adjust origins for production
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # TODO: restrict this in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
 )
 
 
@@ -90,5 +83,28 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
 
 
+def _get_allowed_origins() -> list[str]:
+    """Resolve allowed origins from env or fallback list."""
+    env_origins = os.getenv("GENREFLOW_ALLOWED_ORIGINS")
+    if env_origins:
+        return [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+    return [
+        "http://ui.genreflow.local",
+        "http://genreflow.local",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ]
+
+
 # Include routers
 app.include_router(file_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_get_allowed_origins(),
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
