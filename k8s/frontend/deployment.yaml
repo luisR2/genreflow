@@ -34,8 +34,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: GENREFLOW_API_BASE_URL
-              value: http://genreflow.local
-          ports:
+              value: http://genreflow-backend.genreflow-backend
             - containerPort: 3000
               name: http
           livenessProbe:
