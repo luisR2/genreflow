@@ -35,12 +35,12 @@ spec:
           env:
             - name: GENREFLOW_API_BASE_URL
               value: http://genreflow-backend.genreflow-backend
-            - containerPort: 3000
-              name: http
+            - name: http
+              containerPort: 3000
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 3000
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
@@ -48,7 +48,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 3000
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 15
             timeoutSeconds: 5
