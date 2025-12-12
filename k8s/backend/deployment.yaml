@@ -55,9 +55,9 @@ spec:
             requests:
               cpu: 100m
               memory: 256Mi
-            limits:
-              # TODO: adjust limits based on the workload
-              memory: 1Gi
+            # limits:
+            #   # TODO: adjust limits based on the workload
+            #   memory: 1Gi
           securityContext:
             allowPrivilegeEscalation: false
             # Run as non-root is enforced at the pod level; keep root FS writable for now.
