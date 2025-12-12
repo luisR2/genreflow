@@ -21,6 +21,16 @@ spec:
         app.kubernetes.io/component: api
         app.kubernetes.io/part-of: genreflow
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-role
+                operator: NotIn
+                values:
+                - master
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
@@ -55,9 +65,10 @@ spec:
             requests:
               cpu: 100m
               memory: 256Mi
-            # limits:
-            #   # TODO: adjust limits based on the workload
-            #   memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2000Mi
+
           securityContext:
             allowPrivilegeEscalation: false
             # Run as non-root is enforced at the pod level; keep root FS writable for now.
