@@ -13,10 +13,10 @@
 - [ ]   
 
 ## Phase 2: Production Ready
-- [ ] 
-- [ ] 
-- [ ] 
-- [ ] 
+
+- [ ] Test security concerns
+- [ ] Reduce processing time to <10s per track
+  
 
 ## Phase 3: Enhanced Features
 - [ ] Batch processing for playlists
@@ -27,4 +27,4 @@
 
 ## Future Work
 - Spotify playlist prediction and integration
-- Improve the prediction model using ML
+- Replace heuristic-based music analysis with ML models (genre, BPM, key detection)

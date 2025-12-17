@@ -22,6 +22,9 @@ The final goal is to be able to load complete playlists and have a detailed anal
 
 ## Architecture
 
+This simple diagram shows the project’s current components and planned additions.
+
+![architecture](docs/img/genreflow-diagram.png)
 
 ## Tech Stack
 
