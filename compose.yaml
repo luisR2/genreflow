@@ -1,0 +1,20 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-luisrr/genreflow-backend}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-luisrr/genreflow-frontend}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      GENREFLOW_API_BASE_URL: http://backend:8080
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
