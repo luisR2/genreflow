@@ -1,0 +1,113 @@
+# Poetry config
+[tool.poetry]
+name = "genreflow"
+version = "0.1.0"
+description = "Kubernetes-native music BPM and genre classifier"
+authors = ["Luis Rodriguez"]
+license = "MIT"
+readme = "../README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+numpy = "*"
+scipy = "*"
+librosa = "*"
+soundfile = "*"
+pydantic = "^2"
+requests = "*"
+prometheus-client = "*"
+python-multipart = "*"
+python-magic = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+mypy = "*"
+httpx = "*"
+types-requests = "*"
+black = "^25.11.0"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = [".", "tests"]
+
+[tool.black]
+line-length = 110
+target-version = ["py311"]
+
+# Enable Ruff's formatter (Black-compatible)
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# Ruff lint configuration
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "C4",    # flake8-comprehensions
+    "D",     # pydocstyle
+    "ANN",   # flake8-annotations
+    "TCH",   # flake8-type-checking
+    "TID",   # flake8-tidy-imports
+]
+ignore = [
+    "D203",  # one-blank-line-before-class
+    "D212",  # multi-line-summary-first-line
+    "ANN101", # missing-type-self
+    "ANN102", # missing-type-cls
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "ANN"]  # Disable docstring and annotation checks for tests
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false  # some decorators (like FastAPI) don't have types
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
+
+# Dependencies that don't have type hints
+[[tool.mypy.overrides]]
+module = [
+    "librosa.*",
+    "soundfile.*",
+]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-q"
+pythonpath = ["..", "."]
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
