@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: genreflow
+  namespace: genreflow-backend
+  labels:
+    app.kubernetes.io/name: genreflow
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: genreflow
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3 
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: genreflow
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: genreflow
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: genreflow
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-role
+                operator: NotIn
+                values:
+                - master
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+      imagePullSecrets:
+        - name: dockerhub-secret
+      containers:
+        - name: genreflow
+          image: luisrr/genreflow-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 2000m
+              memory: 2000Mi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            # Run as non-root is enforced at the pod level; keep root FS writable for now.
+            readOnlyRootFilesystem: false

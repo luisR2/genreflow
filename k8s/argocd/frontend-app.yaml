@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: genreflow-frontend
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: genreflow
+    app.kubernetes.io/part-of: genreflow
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/luisR2/genreflow.git
+    targetRevision: dev
+    path: k8s/frontend
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: genreflow-frontend
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
