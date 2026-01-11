@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from backend.app.logging_utils import configure_logging
 from backend.app.routes_file import _predictor
 from backend.app.routes_file import router as file_router
+from backend.app.spotify_routes import router as spotify_router
 
 
 class HealthResponse(BaseModel):
@@ -100,6 +101,7 @@ def _get_allowed_origins() -> list[str]:
 
 # Include routers
 app.include_router(file_router)
+app.include_router(spotify_router)
 
 app.add_middleware(
     CORSMiddleware,

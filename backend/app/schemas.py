@@ -51,3 +51,75 @@ class BPMBulkResponse(BaseModel):
         ..., description="List of BPM analysis results for each submitted file or item."
     )
     analysis_time: float = Field(..., description="Time taken to analyze the audio in seconds.")
+
+
+class SpotifyAudioFeatures(BaseModel):
+    """Spotify audio feature analysis for a track."""
+
+    tempo: float | None = Field(None, description="Estimated tempo in BPM from Spotify.")
+    key: int | None = Field(None, description="Key index from Spotify (0=C, 1=C#, ... 11=B).")
+    key_name: str | None = Field(None, description="Human-readable musical key.")
+    mode: int | None = Field(None, description="Mode from Spotify (1=major, 0=minor).")
+    mode_name: str | None = Field(None, description="Human-readable mode name.")
+    time_signature: int | None = Field(None, description="Estimated time signature from Spotify.")
+    energy: float | None = Field(None, description="Energy metric from Spotify.")
+    danceability: float | None = Field(None, description="Danceability metric from Spotify.")
+    valence: float | None = Field(None, description="Valence metric from Spotify.")
+    acousticness: float | None = Field(None, description="Acousticness metric from Spotify.")
+    instrumentalness: float | None = Field(None, description="Instrumentalness metric from Spotify.")
+    liveness: float | None = Field(None, description="Liveness metric from Spotify.")
+    loudness: float | None = Field(None, description="Loudness in dB from Spotify.")
+    speechiness: float | None = Field(None, description="Speechiness metric from Spotify.")
+
+    @staticmethod
+    def key_name_from_value(value: int | None) -> str | None:
+        """Translate Spotify key index into a musical key name."""
+        if value is None:
+            return None
+        keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+        if 0 <= value < len(keys):
+            return keys[value]
+        return None
+
+    @staticmethod
+    def mode_name_from_value(value: int | None) -> str | None:
+        """Translate Spotify mode integer into a name."""
+        if value is None:
+            return None
+        if value == 1:
+            return "major"
+        if value == 0:
+            return "minor"
+        return None
+
+
+class SpotifyAnalysisSummary(BaseModel):
+    """Summary of Spotify audio analysis metadata."""
+
+    tempo: float | None = Field(None, description="Tempo from Spotify audio analysis.")
+    key: int | None = Field(None, description="Key index from Spotify audio analysis.")
+    key_name: str | None = Field(None, description="Human-readable musical key.")
+    mode: int | None = Field(None, description="Mode index from Spotify audio analysis.")
+    mode_name: str | None = Field(None, description="Human-readable mode name.")
+    time_signature: int | None = Field(None, description="Time signature from Spotify analysis.")
+    loudness: float | None = Field(None, description="Track loudness from Spotify analysis.")
+    duration: float | None = Field(None, description="Track duration from Spotify analysis.")
+
+
+class SpotifyTrackInfo(BaseModel):
+    """Response payload containing Spotify track details and audio features."""
+
+    track_id: str
+    name: str
+    artists: list[str] = Field(default_factory=list)
+    artist_ids: list[str] = Field(default_factory=list)
+    album: str | None = None
+    release_date: str | None = None
+    duration_ms: int | None = None
+    explicit: bool | None = None
+    popularity: int | None = None
+    preview_url: str | None = None
+    external_url: str | None = None
+    genres: list[str] = Field(default_factory=list)
+    audio_features: SpotifyAudioFeatures
+    analysis_summary: SpotifyAnalysisSummary | None = None
