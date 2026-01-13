@@ -18,9 +18,8 @@ Beyond its purpose as a classifier, GenreFlow is also an experiment in building 
 
 ## Architecture
 
-This simple diagram shows the project’s current components and planned additions.
+See [architecture](docs/architecture.md).
 
-![architecture](docs/img/genreflow-diagram.png)
 
 ## Tech Stack
 
@@ -35,22 +34,6 @@ This simple diagram shows the project’s current components and planned additio
 | Integrations | Spotify Web API (preview URLs + audio features) |
 
 ---
-
-## Repository Layout
-```
-genreflow/
-├─ backend/              # Backend service (FastAPI + inference)
-│  ├─ app/               # Application code
-│  ├─ tests/             # Backend tests
-│  ├─ pyproject.toml     # Poetry config (backend-only)
-│  └─ Dockerfile         # Backend image
-├─ frontend/             # Frontend FastAPI static UI + Dockerfile
-├─ k8s/                  # Kubernetes manifests (argocd/, backend/, frontend/)
-├─ scripts/              # Utility scripts
-├─ logging_config.json   # Shared logging config (backend & frontend)
-├─ Makefile              # Common tasks
-└─ README.md
-```
 
 ## Roadmap
 
