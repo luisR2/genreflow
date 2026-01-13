@@ -67,6 +67,9 @@ ignore = [
     "ANN102", # missing-type-cls
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["backend"] # Tell Ruff that the backend package is a first-party package
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
