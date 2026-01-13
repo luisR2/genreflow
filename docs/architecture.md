@@ -46,5 +46,5 @@ flowchart TD
 
     %% Styling subgraphs (important!)
     style MVP fill:#f0f9ff,stroke:#2563eb,stroke-width:2px
-    style Planned fill:#fefce8,stroke:#ca8a04,stroke-width:2px
-    style k3s fill:#fefce8,stroke:#a3a3a3,stroke-width:1.5px
+    style Planned fill:a9c8dc,stroke:#ca8a04,stroke-width:2px
+    style k3s fill:#eef9ff,stroke:#a3a3a3,stroke-width:1.5px
