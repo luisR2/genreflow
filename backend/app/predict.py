@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Constants
-GENRES = ["techno", "house", "rock", "hiphop", "jazz", "classical"]
+GENRES = ["techno", "rock", "hiphop", "jazz", "classical"]
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_N_MELS = 64
 DEFAULT_WINDOW_SIZE = 10.0  # seconds
