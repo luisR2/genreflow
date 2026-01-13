@@ -18,7 +18,7 @@ Beyond its purpose as a classifier, GenreFlow is also an experiment in building 
 
 ## Architecture
 
-See [architecture](docs/architecture.md).
+See [architecture](docs/architecture.md)
 
 
 ## Tech Stack

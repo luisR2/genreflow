@@ -19,6 +19,7 @@ flowchart TD
     Backend -.-> Spotify
     Backend -.-> Classifier
 
+    %% Subgraphs
     subgraph MVP["Implemented (MVP)"]
         Frontend
         Backend
@@ -34,11 +35,16 @@ flowchart TD
         Planned
     end
 
-    %% Styling
+    %% Styling nodes
     style Frontend fill:#dbeafe,stroke:#2563eb,stroke-width:2px
     style Backend fill:#dbeafe,stroke:#2563eb,stroke-width:2px
 
-    style Spotify fill:#f3f4f6,stroke:#9ca3af,stroke-width:1.5px
-    style Classifier fill:#f3f4f6,stroke:#9ca3af,stroke-width:1.5px
+    style Spotify fill:#f9fafb,stroke:#9ca3af,stroke-width:1.5px
+    style Classifier fill:#f9fafb,stroke:#9ca3af,stroke-width:1.5px
 
     style User fill:#ffffff,stroke:#6b7280,stroke-dasharray: 5 5
+
+    %% Styling subgraphs (important!)
+    style MVP fill:#f0f9ff,stroke:#2563eb,stroke-width:2px
+    style Planned fill:#fefce8,stroke:#ca8a04,stroke-width:2px
+    style k3s fill:#fefce8,stroke:#a3a3a3,stroke-width:1.5px
