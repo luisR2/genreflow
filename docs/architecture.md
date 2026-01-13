@@ -25,7 +25,7 @@ flowchart TD
         Backend
     end
 
-    subgraph Planned["Planned / Not Yet Implemented"]
+    subgraph Planned["Planned"]
         Spotify
         Classifier
     end
