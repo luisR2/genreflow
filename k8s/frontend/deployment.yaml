@@ -21,11 +21,14 @@ spec:
         app.kubernetes.io/component: ui
         app.kubernetes.io/part-of: genreflow
     spec:
+      serviceAccountName: genreflow-frontend
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       imagePullSecrets:
         - name: dockerhub-secret
       containers:
@@ -63,4 +66,7 @@ spec:
               memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
             readOnlyRootFilesystem: false
