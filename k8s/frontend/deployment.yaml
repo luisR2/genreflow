@@ -29,8 +29,6 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      imagePullSecrets:
-        - name: dockerhub-secret
       containers:
         - name: genreflow-frontend
           image: luisrr/genreflow-frontend:latest
