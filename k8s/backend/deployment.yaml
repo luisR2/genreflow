@@ -31,13 +31,14 @@ spec:
                 operator: NotIn
                 values:
                 - master
+      serviceAccountName: genreflow-backend
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
         runAsNonRoot: true
-      imagePullSecrets:
-        - name: dockerhub-secret
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: genreflow
           image: luisrr/genreflow-backend:latest
@@ -71,5 +72,8 @@ spec:
 
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
             # Run as non-root is enforced at the pod level; keep root FS writable for now.
             readOnlyRootFilesystem: false
