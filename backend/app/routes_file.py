@@ -2,6 +2,7 @@
 
 import logging
 
+import filetype
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from backend.app.predict import Predictor
@@ -11,19 +12,54 @@ logger = logging.getLogger(__name__)
 
 # Constants
 SUPPORTED_AUDIO_EXTENSIONS = (".wav", ".flac", ".mp3", ".aiff")
+SUPPORTED_AUDIO_MIME_TYPES = frozenset(
+    [
+        "audio/mpeg",          # MP3
+        "audio/x-wav",         # WAV
+        "audio/x-flac",        # FLAC
+        "audio/aiff",          # AIFF
+        "audio/x-aiff",        # AIFF variant
+    ]
+)
 
 router = APIRouter(prefix="/predict", tags=["predict"])
 _predictor = Predictor.load()
 
 
-def _validate_audio_file(file: UploadFile) -> None:
-    if not file.filename.lower().endswith(SUPPORTED_AUDIO_EXTENSIONS):
+def _validate_audio_file(file: UploadFile, data: bytes) -> None:
+    """Validate that the uploaded file is a supported audio format.
+
+    Checks both the filename extension and the actual file content (magic bytes).
+
+    Args:
+        file: The uploaded file object.
+        data: The already-read file bytes.
+
+    Raises:
+        HTTPException: If the filename is missing, the extension is unsupported,
+            or the file content does not match a known audio MIME type.
+    """
+    filename = file.filename
+    if not filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must have a filename.",
+        )
+    if not filename.lower().endswith(SUPPORTED_AUDIO_EXTENSIONS):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 "Unsupported file type. Supported types: "
                 f"{', '.join(ext.upper()[1:] for ext in SUPPORTED_AUDIO_EXTENSIONS)}"
             ),
+        )
+    kind = filetype.guess(data)
+    detected_mime = kind.mime if kind else None
+    if detected_mime not in SUPPORTED_AUDIO_MIME_TYPES:
+        logger.warning("Rejected upload '%s': detected MIME type '%s'", filename, detected_mime)
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"File content does not appear to be a supported audio format (detected: {detected_mime}).",
         )
 
 
@@ -42,14 +78,15 @@ async def predict_file(
     Raises:
         HTTPException: If file type is unsupported or processing fails
     """
-    _validate_audio_file(file)
     try:
         data = await file.read()
-        # Await async predictor
-        result: BPMResult = await _predictor.predict_bytes(data, filename=file.filename)
+        _validate_audio_file(file, data)
+        result: BPMResult = await _predictor.predict_bytes(data, filename=file.filename or "unknown")
         return result
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to process audio: {str(e)}")
+        logger.error("Failed to process audio file '%s': %s", file.filename, e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to process audio: {str(e)}"
         )
@@ -73,13 +110,15 @@ async def predict_files(
         )
     results = []
     for file in files:
-        _validate_audio_file(file)
         try:
             data = await file.read()
-            result: BPMResult = await _predictor.predict_bytes(data, filename=file.filename)
+            _validate_audio_file(file, data)
+            result: BPMResult = await _predictor.predict_bytes(data, filename=file.filename or "unknown")
             results.append(result)
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to process audio: {str(e)}")
+            logger.error("Failed to process audio file '%s': %s", file.filename, e)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to process audio: {str(e)}"
             )

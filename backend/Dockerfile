@@ -16,9 +16,7 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
         build-essential \
         ffmpeg \
-        libsndfile1 \
-        libmagic1 \
-        file && \
+        libsndfile1 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1000 app && adduser --system --uid 1000 --ingroup app app
