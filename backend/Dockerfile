@@ -1,39 +1,44 @@
+# Stage 1: builder — install dependencies into a venv
+FROM python:3.11-slim AS builder
+
+ENV POETRY_VERSION=1.8.3 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    POETRY_HOME=/opt/poetry \
+    PATH="/opt/poetry/bin:${PATH}"
+
+WORKDIR /app/backend
+
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
+
+COPY backend/pyproject.toml backend/poetry.lock* ./
+RUN poetry install --without dev --no-root --no-ansi
+
+# Stage 2: runtime — copy only the venv and app code
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    POETRY_VERSION=1.8.3 \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_HOME=/opt/poetry \
     NUMBA_CACHE_DIR=/tmp/numba_cache \
-    PATH="/opt/poetry/bin:${PATH}"
+    PATH="/app/backend/.venv/bin:${PATH}"
 
 WORKDIR /app
 
-# System dependencies required by numpy, scipy, librosa, and soundfile
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y \
-        build-essential \
-        ffmpeg \
-        libsndfile1 && \
+    apt-get install --no-install-recommends -y ffmpeg libsndfile1 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1000 app && adduser --system --uid 1000 --ingroup app app
 RUN mkdir -p /tmp/numba_cache && chown app:app /tmp/numba_cache
 
-# Install Poetry and project dependencies
-RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
+# Copy virtualenv from builder
+COPY --from=builder /app/backend/.venv /app/backend/.venv
 
-WORKDIR /app/backend
-COPY backend/pyproject.toml backend/poetry.lock* ./
-RUN poetry install --without dev --no-root --no-ansi
-
-# Remove build tools to slim the image
-RUN apt-get purge -y build-essential && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
-
-# Copy application code and shared logging config
-WORKDIR /app
+# Copy application code and logging config
 COPY --chown=app:app backend /app/backend
 COPY --chown=app:app logging_config.json /app/logging_config.json
 

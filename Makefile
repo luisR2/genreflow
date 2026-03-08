@@ -32,7 +32,7 @@ BACKEND_IMAGE ?= $(DOCKERHUB_USERNAME)/genreflow-backend
 FRONTEND_IMAGE ?= $(DOCKERHUB_USERNAME)/genreflow-frontend
 BACKEND_CONTAINER ?= genreflow-backend
 FRONTEND_CONTAINER ?= genreflow-frontend
-IMAGE_TAG ?= latest
+IMAGE_TAG ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
 
 # Pytest arguments (override with: make test PYTEST_ARGS="-q -k smoke")
 PYTEST_ARGS ?= -raq

@@ -9,6 +9,20 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+
+class HealthResponse(BaseModel):
+    """Health check response payload."""
+
+    status: str
+    version: str
+
+
+class ReadinessResponse(BaseModel):
+    """Readiness check response payload."""
+
+    status: bool
+    model_loaded: bool
+
 # -- Genre prediction classes are NOT in current use, but preserved for future --
 # class GenrePrediction(BaseModel):
 #     """Genre label and confidence score."""
