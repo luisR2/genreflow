@@ -67,9 +67,16 @@ User -> Frontend (port 3000) -> Backend (port 8080) -> Audio Processing (librosa
 - `GENREFLOW_API_BASE_URL` - Backend URL for frontend (default: `http://localhost:8080`)
 - `GENREFLOW_ALLOWED_ORIGINS` - CORS allowed origins (comma-separated)
 
+## Branching Strategy
+
+This project uses **trunk-based development**. All changes go directly to `main`.
+
+- Short-lived feature branches are acceptable for large changes, but merge to `main` quickly.
+- There is no long-lived `dev` branch — `main` is always the source of truth.
+
 ## Deployment
 
-- Kubernetes manifests in `k8s/backend/` and `k8s/frontend/`
+- Kubernetes manifests in `k8s/` (Kustomize base/overlay structure)
 - ArgoCD applications in `k8s/argocd/`
 - Docker images built for linux/arm64 (Raspberry Pi)
 - Sealed secrets for Docker Hub credentials
