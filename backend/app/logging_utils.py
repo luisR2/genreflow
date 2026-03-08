@@ -29,7 +29,7 @@ def logged(
     """Decorator to log function entry with optional custom logger and message."""
 
     def decorator(func: Callable[P, R] | classmethod | staticmethod) -> Callable[P, R]:
-        if isinstance(func, (classmethod, staticmethod)):
+        if isinstance(func, classmethod | staticmethod):
             wrapped = decorator(func.__func)  # type: ignore[attr-defined]
             return type(func)(wrapped)  # type: ignore[return-value]
         if not enabled:

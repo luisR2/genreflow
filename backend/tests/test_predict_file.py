@@ -55,9 +55,9 @@ def test_predict_file_endpoint_ok(client: TestClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["filename"] == "tone.wav"
-    assert (body.get("bpm") is None) or isinstance(body.get("bpm"), (float, int))
+    assert (body.get("bpm") is None) or isinstance(body.get("bpm"), float | int)
     assert "analysis_time" in body
-    assert isinstance(body["analysis_time"], (float, int))
+    assert isinstance(body["analysis_time"], float | int)
     assert body["analysis_time"] > 0
 
 
@@ -78,12 +78,12 @@ def test_predict_files_bulk_endpoint_ok(client: TestClient) -> None:
     filenames = [result["filename"] for result in body["results"]]
     assert set(filenames) == {"tone1.wav", "tone2.wav"}
     for result in body["results"]:
-        assert (result.get("bpm") is None) or isinstance(result.get("bpm"), (float, int))
+        assert (result.get("bpm") is None) or isinstance(result.get("bpm"), float | int)
         assert "analysis_time" in result
-        assert isinstance(result["analysis_time"], (float, int))
+        assert isinstance(result["analysis_time"], float | int)
         assert result["analysis_time"] > 0
     assert "analysis_time" in body
-    assert isinstance(body["analysis_time"], (float, int))
+    assert isinstance(body["analysis_time"], float | int)
     sum_individual = sum(res["analysis_time"] for res in body["results"])
     assert abs(body["analysis_time"] - sum_individual) < 1e-3
 
@@ -156,7 +156,7 @@ def test_predict_file_silent_audio(client: TestClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["filename"] == "silent.wav"
-    assert (body.get("bpm") is None) or isinstance(body.get("bpm"), (float, int))
+    assert (body.get("bpm") is None) or isinstance(body.get("bpm"), float | int)
 
 
 def test_predict_file_corrupt_file(client: TestClient) -> None:

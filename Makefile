@@ -1,7 +1,7 @@
 
 # Common Poetry targets
 # Phony targets
-.PHONY: install list check update run dev frontend shell test lint format black venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all
+.PHONY: install install-hooks list check update run dev frontend shell test lint format black venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all
 
 POETRY ?= poetry
 POETRY_CMD := cd backend && $(POETRY)
@@ -39,6 +39,9 @@ PYTEST_ARGS ?= -raq
 
 install:
 	$(POETRY_CMD) install --with dev
+
+install-hooks:
+	$(POETRY_RUN) pre-commit install
 
 list:
 	$(POETRY_CMD) show --tree
@@ -99,6 +102,7 @@ predict-files-bulk:
 help:
 	@echo "Available targets:"
 	@echo "  make install     -> create virtualenv and install dependencies via Poetry (with dev extras)"
+	@echo "  make install-hooks -> install git pre-commit hooks (format + lint + tests)"
 	@echo "  make check       -> run 'poetry check' to validate pyproject.toml and lockfile"
 	@echo "  make update      -> update dependencies in pyproject.lock using Poetry"
 	@echo "  make list        -> show dependency tree via 'poetry show --tree'"

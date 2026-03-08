@@ -46,7 +46,7 @@ def _validate_audio_file(file: UploadFile, data: bytes) -> None:
     """
     if len(data) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            status_code=413,
             detail=f"File too large. Maximum allowed size is {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB.",
         )
     filename = file.filename
@@ -131,7 +131,7 @@ async def predict_files(
         )
     if len(files) > MAX_BATCH_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            status_code=413,
             detail=f"Too many files. Maximum batch size is {MAX_BATCH_SIZE}.",
         )
 

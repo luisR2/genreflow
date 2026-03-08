@@ -1,0 +1,23 @@
+repos:
+  - repo: local
+    hooks:
+      - id: format
+        name: ruff format
+        language: system
+        entry: make format
+        pass_filenames: false
+        always_run: true
+
+      - id: lint
+        name: ruff lint
+        language: system
+        entry: make lint
+        pass_filenames: false
+        always_run: true
+
+      - id: tests
+        name: pytest
+        language: system
+        entry: make test
+        pass_filenames: false
+        always_run: true
