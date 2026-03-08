@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import librosa
+import librosa.feature.rhythm as librosa_rhythm
 import numpy as np
 import numpy.typing as npt
 import soundfile as sf
@@ -32,7 +33,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Constants
-GENRES = ["techno", "rock", "hiphop", "jazz", "classical"]
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_N_MELS = 64
 DEFAULT_WINDOW_SIZE = 10.0  # seconds
@@ -129,98 +129,6 @@ class Predictor:
         except Exception as e:
             raise ValueError(f"Failed to load audio: {str(e)}") from e
 
-    def _windows(
-        self, y: npt.NDArray[np.float32], length_s: float = DEFAULT_WINDOW_SIZE
-    ) -> list[npt.NDArray[np.float32]]:
-        """Split audio into fixed-length windows.
-
-        Args:
-            y: Input audio signal
-            length_s: Window length in seconds
-
-        Returns:
-            List of audio windows as numpy arrays
-        """
-        win_samples = int(length_s * self.sr)
-
-        # Pad short clips to ensure at least one window
-        if len(y) < win_samples:
-            logger.debug(f"Padding audio from {len(y)} to {win_samples} samples")
-            pad_length = win_samples - len(y)
-            y = np.pad(y, (0, pad_length))
-
-        # Extract windows with no overlap
-        windows = [y[i : i + win_samples] for i in range(0, len(y), win_samples) if i + win_samples <= len(y)]
-
-        logger.debug(f"Split audio into {len(windows)} windows of {length_s}s each")
-        return windows
-
-    def _heuristic_window_prediction(self, w: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-        """Generate probability scores for an audio window using simple heuristics.
-
-        Args:
-            w: Audio window as numpy array (float32), shape (n,)
-
-        Returns:
-            Probability distribution over genres, dtype float32, shape ``(len(GENRES),)``.
-
-        Note:
-            Placeholder using simple audio features; to be replaced by model inference.
-        """
-        # Ensure we always have something to return if an exception occurs early
-        tempo: float = float("nan")
-
-        try:
-            # --- Feature extraction ---
-            sc = float(librosa.feature.spectral_centroid(y=w, sr=self.sr).mean())
-            zcr = float(librosa.feature.zero_crossing_rate(w).mean())
-            tempo_est, _ = librosa.beat.beat_track(y=w, sr=self.sr)
-            tempo = float(tempo_est)
-
-            # --- Normalization (simple scalings/heuristics) ---
-            sc_norm = sc / 5000.0  # brightness
-            zcr_norm = zcr / 0.2  # percussiveness
-            tempo_norm = tempo / 180.0  # speed
-
-            # --- Pseudo-probabilities from features ---
-            raw = np.array(
-                [
-                    0.6 * tempo_norm + 0.4 * sc_norm,  # electronic
-                    0.5 * zcr_norm + 0.5 * sc_norm,  # rock
-                    0.6 * zcr_norm + 0.4 * tempo_norm,  # hiphop
-                    0.5 * (1.0 - sc_norm) + 0.3 * zcr_norm,  # jazz
-                    0.8 * (1.0 - zcr_norm) + 0.2 * (1.0 - tempo_norm),  # classical
-                ],
-                dtype=np.float32,
-            )
-
-            # --- Normalize to probabilities ---
-            raw = np.clip(raw, 0.001, None)
-            probs = (raw / float(raw.sum())).astype(np.float32, copy=False)
-
-            return probs
-
-        except Exception as e:
-            logger.error(f"Failed to predict window: {e}")
-            fallback = np.ones(len(GENRES), dtype=np.float32) / float(len(GENRES))
-            return fallback
-
-    def _get_song_bpm(self, y: npt.NDArray[np.float32]) -> float:
-        """Estimate the BPM of the entire audio clip.
-
-        Args:
-            y: Input audio signal
-
-        Returns:
-            Estimated BPM as a float
-        """
-        try:
-            tempo, _ = librosa.beat.beat_track(y=y, sr=self.sr)
-            return float(tempo)
-        except Exception as e:
-            logger.error(f"Failed to estimate BPM: {e}")
-            return float("nan")
-
     async def predict_bytes(self, audio_bytes: bytes, filename: str = "unknown") -> BPMResult:
         """Analyze BPM from audio file bytes. Ignores genre analysis.
 
@@ -268,10 +176,7 @@ class Predictor:
             if oenv.size < 8 or not np.isfinite(oenv).all():
                 continue
 
-            # Use compat tempo function
-            from librosa.feature import rhythm  # librosa >= 0.10
-
-            tempo = rhythm.tempo(
+            tempo = librosa_rhythm.tempo(
                 onset_envelope=oenv,
                 sr=sr,
                 hop_length=hop_length,

@@ -1,29 +1,28 @@
 """FastAPI application entrypoint for the GenreFlow service."""
 
+import logging
 import os
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 from backend.app.logging_utils import configure_logging
-from backend.app.routes_file import _predictor
-from backend.app.routes_file import router as file_router
+from backend.app.predict import Predictor
+from backend.app.schemas import HealthResponse, ReadinessResponse
+
+logger = logging.getLogger(__name__)
 
 
-class HealthResponse(BaseModel):
-    """Health check response payload."""
-
-    status: str
-    version: str
-
-
-class ReadinessResponse(BaseModel):
-    """Readiness check response payload."""
-
-    status: bool
-    model_loaded: bool
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage application startup and shutdown lifecycle."""
+    configure_logging()
+    application.state.predictor = Predictor.load()
+    yield
+    application.state.predictor = None
 
 
 app = FastAPI(
@@ -33,6 +32,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 
@@ -55,31 +55,20 @@ async def healthz() -> HealthResponse:
     tags=["health"],
     summary="Readiness check endpoint",
 )
-async def readyz() -> ReadinessResponse:
+async def readyz(request: Request) -> ReadinessResponse:
     """Report service readiness state."""
-    return ReadinessResponse(status=True, model_loaded=_predictor is not None)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Initialize resources on startup."""
-    configure_logging()
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Cleanup resources on shutdown."""
-    # Add any cleanup code here
-    pass
+    predictor = getattr(request.app.state, "predictor", None)
+    return ReadinessResponse(status=True, model_loaded=predictor is not None)
 
 
 # Exception handlers
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handle all unhandled exceptions."""
+    """Handle all unhandled exceptions without leaking internal details to the client."""
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": f"Internal server error: {str(exc)}"},
+        content={"detail": "An unexpected error occurred. Please try again later."},
     )
 
 
@@ -97,6 +86,8 @@ def _get_allowed_origins() -> list[str]:
         "http://127.0.0.1:8080",
     ]
 
+
+from backend.app.routes_file import router as file_router  # noqa: E402
 
 # Include routers
 app.include_router(file_router)
