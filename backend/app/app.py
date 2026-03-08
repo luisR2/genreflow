@@ -1,5 +1,6 @@
 """FastAPI application entrypoint for the GenreFlow service."""
 
+import logging
 import os
 
 from fastapi import FastAPI, Request, status
@@ -8,6 +9,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.app.logging_utils import configure_logging
+
+logger = logging.getLogger(__name__)
 from backend.app.routes_file import _predictor
 from backend.app.routes_file import router as file_router
 
@@ -76,10 +79,11 @@ async def shutdown_event() -> None:
 # Exception handlers
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handle all unhandled exceptions."""
+    """Handle all unhandled exceptions without leaking internal details to the client."""
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": f"Internal server error: {str(exc)}"},
+        content={"detail": "An unexpected error occurred. Please try again later."},
     )
 
 

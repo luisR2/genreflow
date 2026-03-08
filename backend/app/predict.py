@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import librosa
+import librosa.feature.rhythm as librosa_rhythm
 import numpy as np
 import numpy.typing as npt
 import soundfile as sf
@@ -268,10 +269,7 @@ class Predictor:
             if oenv.size < 8 or not np.isfinite(oenv).all():
                 continue
 
-            # Use compat tempo function
-            from librosa.feature import rhythm  # librosa >= 0.10
-
-            tempo = rhythm.tempo(
+            tempo = librosa_rhythm.tempo(
                 onset_envelope=oenv,
                 sr=sr,
                 hop_length=hop_length,
