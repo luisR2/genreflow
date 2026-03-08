@@ -22,6 +22,7 @@ def client() -> TestClient:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _sine_wav_bytes(freq: float = 440.0, sr: int = 16000, secs: float = 2.0) -> bytes:
     """Generate a simple sine wave clip encoded as WAV bytes."""
     t = np.linspace(0, secs, int(secs * sr), endpoint=False, dtype=np.float32)
@@ -44,6 +45,7 @@ def _silent_wav_bytes(sr: int = 16000, secs: float = 2.0) -> bytes:
 # ---------------------------------------------------------------------------
 # Happy-path tests
 # ---------------------------------------------------------------------------
+
 
 def test_predict_file_endpoint_ok(client: TestClient) -> None:
     """`POST /predict/file` returns BPM analysis for audio input."""
@@ -90,6 +92,7 @@ def test_predict_files_bulk_endpoint_ok(client: TestClient) -> None:
 # Negative-path: extension validation
 # ---------------------------------------------------------------------------
 
+
 def test_predict_file_rejects_unsupported_extension(client: TestClient) -> None:
     """Files with unsupported extensions are rejected with 400."""
     wav = _sine_wav_bytes()
@@ -103,6 +106,7 @@ def test_predict_file_rejects_unsupported_extension(client: TestClient) -> None:
 # Negative-path: magic bytes / MIME validation
 # ---------------------------------------------------------------------------
 
+
 def test_predict_file_rejects_wrong_magic_bytes(client: TestClient) -> None:
     """Files whose content does not match a known audio format are rejected with 415."""
     fake_audio = b"This is plain text, not audio content at all."
@@ -114,6 +118,7 @@ def test_predict_file_rejects_wrong_magic_bytes(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 # Negative-path: file size limit
 # ---------------------------------------------------------------------------
+
 
 def test_predict_file_rejects_oversized_file(client: TestClient) -> None:
     """Files exceeding the size limit are rejected with 413."""
@@ -128,6 +133,7 @@ def test_predict_file_rejects_oversized_file(client: TestClient) -> None:
 # Negative-path: batch size limit
 # ---------------------------------------------------------------------------
 
+
 def test_predict_files_rejects_oversized_batch(client: TestClient) -> None:
     """Batches exceeding the maximum file count are rejected with 413."""
     wav = _sine_wav_bytes()
@@ -140,6 +146,7 @@ def test_predict_files_rejects_oversized_batch(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
+
 
 def test_predict_file_silent_audio(client: TestClient) -> None:
     """Silent audio returns 200; BPM may be None since there is no detectable beat."""

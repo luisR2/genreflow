@@ -2,12 +2,15 @@
 
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 
 import filetype
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 
-from backend.app.predict import Predictor
 from backend.app.schemas import BPMBulkResponse, BPMResult
+
+if TYPE_CHECKING:
+    from backend.app.predict import Predictor
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +18,11 @@ logger = logging.getLogger(__name__)
 SUPPORTED_AUDIO_EXTENSIONS = (".wav", ".flac", ".mp3", ".aiff")
 SUPPORTED_AUDIO_MIME_TYPES = frozenset(
     [
-        "audio/mpeg",          # MP3
-        "audio/x-wav",         # WAV
-        "audio/x-flac",        # FLAC
-        "audio/aiff",          # AIFF
-        "audio/x-aiff",        # AIFF variant
+        "audio/mpeg",  # MP3
+        "audio/x-wav",  # WAV
+        "audio/x-flac",  # FLAC
+        "audio/aiff",  # AIFF
+        "audio/x-aiff",  # AIFF variant
     ]
 )
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -66,7 +69,9 @@ def _validate_audio_file(file: UploadFile, data: bytes) -> None:
         logger.warning("Rejected upload '%s': detected MIME type '%s'", filename, detected_mime)
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"File content does not appear to be a supported audio format (detected: {detected_mime}).",
+            detail=(
+                f"File content does not appear to be a supported audio format (detected: {detected_mime})."
+            ),
         )
 
 

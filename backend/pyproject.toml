@@ -57,8 +57,6 @@ select = [
 ignore = [
     "D203",  # one-blank-line-before-class
     "D212",  # multi-line-summary-first-line
-    "ANN101", # missing-type-self
-    "ANN102", # missing-type-cls
 ]
 
 [tool.ruff.lint.isort]

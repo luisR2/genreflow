@@ -23,6 +23,7 @@ class ReadinessResponse(BaseModel):
     status: bool
     model_loaded: bool
 
+
 # -- Genre prediction classes are NOT in current use, but preserved for future --
 # class GenrePrediction(BaseModel):
 #     """Genre label and confidence score."""
