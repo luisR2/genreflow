@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -59,7 +59,7 @@ jobs:
         working-directory: .
         run: |
           EXTRA_TAGS=""
-          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             EXTRA_TAGS="-t $BE_IMAGE_NAME:latest"
           fi
 
@@ -74,7 +74,7 @@ jobs:
         working-directory: .
         run: |
           EXTRA_TAGS=""
-          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             EXTRA_TAGS="-t $FE_IMAGE_NAME:latest"
           fi
 
