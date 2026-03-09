@@ -12,7 +12,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/luisR2/genreflow.git
-    targetRevision: dev
+    targetRevision: main
     path: k8s/overlays/home/frontend
   destination:
     server: https://kubernetes.default.svc

@@ -85,26 +85,6 @@ jobs:
             --push \
             .
 
-      # - name: Build Docker image (arm64)
-      #   run: |
-      #     docker buildx build --platform linux/arm64 \
-      #       -t "$IMAGE_NAME:$IMAGE_TAG" \
-      #       -f docker/Dockerfile \
-      #       --load \
-      #       .
-      #     # Also tag as latest for dev branch
-      #     if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
-      #       docker tag "$IMAGE_NAME:$IMAGE_TAG" "$IMAGE_NAME:latest"
-      #     fi
-      
-      # - name: Push Docker image
-      #   run: |
-      #     docker push "$IMAGE_NAME:$IMAGE_TAG"
-      #     # Push latest tag if on dev branch
-      #     if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
-      #       docker push "$IMAGE_NAME:latest"
-      #     fi
-
   # Optional: static security scan placeholder
   security-scan:
     runs-on: ubuntu-latest
