@@ -2,8 +2,6 @@
 
 import logging
 import os
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,15 +13,7 @@ from backend.app.schemas import HealthResponse, ReadinessResponse
 
 logger = logging.getLogger(__name__)
 
-
-@asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage application startup and shutdown lifecycle."""
-    configure_logging()
-    application.state.predictor = Predictor.load()
-    yield
-    application.state.predictor = None
-
+configure_logging()
 
 app = FastAPI(
     title="GenreFlow",
@@ -32,8 +22,13 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
-    lifespan=lifespan,
 )
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Load the predictor on application startup."""
+    app.state.predictor = Predictor.load()
 
 
 @app.get(

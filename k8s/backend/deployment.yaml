@@ -40,7 +40,7 @@ spec:
         - name: dockerhub-secret
       containers:
         - name: genreflow
-          image: luisrr/genreflow-backend:a6a1ebf
+          image: luisrr/genreflow-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
