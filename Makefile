@@ -1,17 +1,17 @@
 
 # Common Poetry targets
 # Phony targets
-.PHONY: install install-hooks list check update run dev frontend shell test lint format black venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all
+.PHONY: install install-hooks list check update run dev frontend shell test lint format black venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all argocd-apply kubectl-status
 
 POETRY ?= poetry
 POETRY_CMD := cd backend && $(POETRY)
 POETRY_RUN := cd backend && $(POETRY) run
 
 # Command to run inside the Poetry environment (override when calling: make run CMD="python -m backend")
-CMD ?= uvicorn backend.app.app:app --port 8080 --log-config ../logging_config.json
+CMD ?= uvicorn backend.app.app:app --port 8080 --log-config logging_config.json
 
 # Dev server command (override with: make dev CMD_DEV="uvicorn backend.app.app:app --reload")
-CMD_DEV ?= uvicorn backend.app.app:app --reload --port 8080 --log-config ../logging_config.json
+CMD_DEV ?= uvicorn backend.app.app:app --reload --port 8080 --log-config logging_config.json
 
 # Frontend dev server command (override with: make frontend FRONTEND_CMD="uvicorn app:app --reload --port 3000")
 FRONTEND_CMD ?= uvicorn app:app --reload --host 0.0.0.0 --port 3000 --log-config ../logging_config.json
@@ -53,10 +53,10 @@ update:
 	$(POETRY_CMD) update
 
 run:
-	$(POETRY_RUN) $(CMD)
+	cd backend && $(POETRY) run sh -c "cd .. && $(CMD)"
 
 dev:
-	$(POETRY_RUN) $(CMD_DEV)
+	cd backend && $(POETRY) run sh -c "cd .. && $(CMD_DEV)"
 
 frontend:
 	$(POETRY_RUN) sh -c 'cd ../frontend && GENREFLOW_API_BASE_URL="$(GENREFLOW_API_BASE_URL)" $(FRONTEND_CMD)'
@@ -112,7 +112,7 @@ help:
 	@echo "  make shell       -> open an interactive Poetry shell (activates venv)"
 	@echo "  make test        -> run tests via pytest (poetry run pytest $(PYTEST_ARGS))"
 	@echo "  make lint        -> run ruff to lint the repository (poetry run ruff check .)"
-	@echo "  make format      -> run ruff formatter"
+	@echo "  make format-black -> run ruff formatter"
 	@echo "  make black       -> run Black formatter"
 	@echo "  make venv PYTHON=.. -> show poetry venv path or set the environment Python (poetry env use $(PYTHON))"
 	@echo "  make docker-build-backend -> build the backend Docker image (BACKEND_IMAGE=$(BACKEND_IMAGE), IMAGE_TAG=$(IMAGE_TAG))"
@@ -175,3 +175,13 @@ compose-down:
 
 
 #TODO: Add a target to kubeseal the docker hub secret before pushing the YAML to GitHub.
+
+argocd-apply:
+	kubectl apply -f k8s/argocd/
+
+kubectl-status:
+	@echo "=== Backend ==="
+	kubectl get pods,deployments,svc -n genreflow-backend
+	@echo ""
+	@echo "=== Frontend ==="
+	kubectl get pods,deployments,svc -n genreflow-frontend
