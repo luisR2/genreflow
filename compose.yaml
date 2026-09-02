@@ -14,6 +14,7 @@ services:
       dockerfile: frontend/Dockerfile
     environment:
       GENREFLOW_API_BASE_URL: http://backend:8080
+      GENREFLOW_UPSTREAM_TIMEOUT: "120"
     depends_on:
       - backend
     ports:

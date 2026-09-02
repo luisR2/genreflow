@@ -57,14 +57,20 @@ cluster-internal name, so **the app would not work for anyone but you**.
 It also forces the backend to be public, which contradicts the stated goal of
 keeping it private.
 
-- [ ] Add a proxy route to `frontend/app.py`: `POST /api/predict/file` forwards
-      to the backend over ClusterIP
-- [ ] Point `app.js` at same-origin `/api/...`; drop `apiBaseUrl` from the fetch
-- [ ] Change `GENREFLOW_API_BASE_URL` to the in-cluster service DNS
+- [x] Add a proxy route to `frontend/app.py`: `POST /api/predict/{file,files}`
+      forwards to the backend over ClusterIP, streaming the body rather than
+      buffering it, with an allowlist so it cannot proxy anything else
+- [x] Point `app.js` at same-origin `/api/...`; drop `apiBaseUrl` and
+      `/config.json`, which existed only to hand the browser a backend URL
+- [x] Change `GENREFLOW_API_BASE_URL` to the in-cluster service DNS
       (`http://genreflow-backend.genreflow-backend.svc.cluster.local`)
-- [ ] Delete `k8s/base/backend/ingress.yaml` — the backend needs no ingress
-- [ ] Remove the CORS middleware from `backend/app/app.py`; same-origin requests
+- [x] Delete `k8s/base/backend/ingress.yaml` — the backend needs no ingress
+- [x] Remove the CORS middleware from `backend/app/app.py`; same-origin requests
       don't need it, and it stops being a thing to get wrong
+
+**Done** — 19 tests in `backend/tests/test_frontend_proxy.py` cover forwarding,
+error relaying (400/413/415/500 pass through with their detail), 502/504 on an
+unreachable or slow backend, and rejection of non-allowlisted paths.
 
 **Why it's worth doing first:** one public hostname instead of two, no CORS, no
 backend ingress to harden, and the tunnel config gets a single service.

@@ -1,16 +1,15 @@
 """FastAPI application entrypoint for the GenreFlow service."""
 
 import logging
-import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.logging_utils import configure_logging
 from backend.app.predict import Predictor
+from backend.app.routes_file import router as file_router
 from backend.app.schemas import HealthResponse, ReadinessResponse
 
 logger = logging.getLogger(__name__)
@@ -72,30 +71,5 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
 
 
-def _get_allowed_origins() -> list[str]:
-    """Resolve allowed origins from env or fallback list."""
-    env_origins = os.getenv("GENREFLOW_ALLOWED_ORIGINS")
-    if env_origins:
-        return [origin.strip() for origin in env_origins.split(",") if origin.strip()]
-    return [
-        "http://ui.genreflow.local",
-        "http://genreflow.local",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-    ]
-
-
-from backend.app.routes_file import router as file_router  # noqa: E402
-
 # Include routers
 app.include_router(file_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_get_allowed_origins(),
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)

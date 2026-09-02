@@ -35,11 +35,12 @@ make docker-build-all     # Build backend and frontend images (arm64)
 ## Architecture
 
 ```
-User -> Frontend (port 3000) -> Backend (port 8080) -> Audio Processing (librosa)
+User -> Frontend (port 3000) -> /api proxy -> Backend (port 8080) -> Audio Processing (librosa)
+                 ^ only origin the browser sees      ^ ClusterIP only, no ingress
 ```
 
 **Backend** (`backend/`):
-- `app/app.py` - FastAPI entrypoint, health checks, CORS configuration
+- `app/app.py` - FastAPI entrypoint, lifespan, health checks, exception handler
 - `app/predict.py` - `Predictor` class: loads audio, resamples to 16kHz, estimates BPM using librosa
 - `app/routes_file.py` - File upload endpoints (`POST /predict/file`, `POST /predict/files`)
 - `app/schemas.py` - Pydantic models (`BPMResult`, `BPMBulkResponse`)
@@ -47,13 +48,19 @@ User -> Frontend (port 3000) -> Backend (port 8080) -> Audio Processing (librosa
 **Frontend** (`frontend/`):
 - Minimal FastAPI serving static HTML/CSS/JS
 - Drag-and-drop file upload UI
-- Gets backend URL from `/config.json` endpoint
+- Proxies uploads to the backend at `POST /api/predict/{file,files}`, so the
+  browser only ever talks to the frontend's own origin. The backend is
+  ClusterIP-only with no ingress, and needs no CORS.
 
-**API Endpoints**:
+**API Endpoints** (backend, reachable only via the frontend proxy):
 - `GET /healthz` - Liveness probe
 - `GET /readyz` - Readiness probe (checks if predictor loaded)
 - `POST /predict/file` - Single file BPM analysis
 - `POST /predict/files` - Bulk file BPM analysis
+
+**Frontend endpoints** (what the browser actually calls):
+- `GET /` - SPA shell, `GET /healthz` - liveness
+- `POST /api/predict/file` and `POST /api/predict/files` - proxied to the backend
 
 ## Code Style
 
@@ -64,8 +71,9 @@ User -> Frontend (port 3000) -> Backend (port 8080) -> Audio Processing (librosa
 
 ## Environment Variables
 
-- `GENREFLOW_API_BASE_URL` - Backend URL for frontend (default: `http://localhost:8080`)
-- `GENREFLOW_ALLOWED_ORIGINS` - CORS allowed origins (comma-separated)
+- `GENREFLOW_API_BASE_URL` - Backend URL the frontend proxies to (default: `http://localhost:8080`).
+  Internal only; never a public address.
+- `GENREFLOW_UPSTREAM_TIMEOUT` - Frontend proxy timeout in seconds (default: `120`)
 
 ## Branching Strategy
 

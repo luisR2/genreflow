@@ -2,9 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" httpx
 
-ENV GENREFLOW_API_BASE_URL="http://genreflow-backend:8080"
+ENV GENREFLOW_API_BASE_URL="http://genreflow-backend.genreflow-backend.svc.cluster.local"
 
 COPY frontend/ /app/
 COPY logging_config.json /app/logging_config.json

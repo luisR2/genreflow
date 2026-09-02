@@ -11,7 +11,6 @@
   const resultsBody = document.getElementById("results-body");
   const totalTime = document.getElementById("total-time");
 
-  let apiBaseUrl = "";
   let files = [];
 
   const formatSeconds = (seconds) => `${seconds.toFixed(2)}s`;
@@ -68,17 +67,6 @@
     renderList();
   };
 
-  const fetchConfig = async () => {
-    try {
-      const res = await fetch("/config.json");
-      const cfg = await res.json();
-      apiBaseUrl = cfg.apiBaseUrl;
-    } catch (err) {
-      setStatus("Failed to load config", "error");
-      console.error(err);
-    }
-  };
-
   const sendFiles = async () => {
     if (!files.length) {
       setStatus("Add at least one audio file", "warn");
@@ -92,14 +80,19 @@
     files.forEach((file) => form.append("files", file));
 
     try {
-      const res = await fetch(`${apiBaseUrl}/predict/files`, {
+      const res = await fetch("/api/predict/files", {
         method: "POST",
         body: form,
       });
 
       if (!res.ok) {
-        const detail = await res.text();
-        throw new Error(detail || "Request failed");
+        let detail = "";
+        try {
+          detail = (await res.json()).detail || "";
+        } catch (_) {
+          detail = await res.text();
+        }
+        throw new Error(detail || `Request failed (${res.status})`);
       }
 
       const data = await res.json();
@@ -121,7 +114,7 @@
       resultsPanel.classList.remove("hidden");
       setStatus("Done", "success");
     } catch (err) {
-      setStatus("Upload failed. Check backend availability.", "error");
+      setStatus(err.message || "Upload failed.", "error");
       console.error(err);
     } finally {
       analyzeButton.disabled = false;
@@ -154,8 +147,6 @@
       addFiles(e.dataTransfer.files);
     }
   });
-
-  fetchConfig();
 })();
 
 
