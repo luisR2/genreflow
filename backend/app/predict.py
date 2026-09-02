@@ -16,6 +16,7 @@ import io
 import logging
 import time
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING
 
 import librosa
@@ -37,6 +38,38 @@ DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_N_MELS = 64
 DEFAULT_WINDOW_SIZE = 10.0  # seconds
 
+# Tempo analysis tuning.
+#
+# Analysis is capped to a centred excerpt: tempo is near-stationary in most
+# tracks, so a representative slice yields the same answer as the full signal
+# while keeping runtime constant regardless of track length.
+DEFAULT_MAX_ANALYSIS_SECONDS = 60.0
+
+# Hop length for the onset envelope, in samples. This sets the frame rate of the
+# tempogram and therefore the lag quantisation of the tempo estimate. At 16 kHz a
+# hop of 256 gives 62.5 frames/s, where neighbouring integer lags near 174 BPM are
+# ~8 BPM apart and the estimate snaps to 170.5. A hop of 128 doubles the frame rate
+# and resolves those tempos correctly.
+DEFAULT_TEMPO_HOP_LENGTH = 128
+
+# Sliding analysis window over the excerpt, in seconds.
+DEFAULT_TEMPO_WINDOW_SECONDS = 15.0
+DEFAULT_TEMPO_STRIDE_SECONDS = 7.5
+
+# Shortest signal that still supports a windowed tempo estimate. Below the normal
+# window length the whole clip is used as a single window instead of being skipped.
+MIN_TEMPO_WINDOW_SECONDS = 5.0
+
+# Minimum mean onset-envelope energy for a window to count towards the estimate.
+# Guards against silent input, whose all-zero envelope is finite and would
+# otherwise contribute a zero-weight vote and yield a fabricated tempo.
+MIN_ONSET_ENERGY = 1e-6
+
+# Harmonic/percussive separation is disabled by default. It dominated runtime
+# (~91% of analysis time on a 5 minute track) without changing the estimate on
+# the benchmark material, so it is opt-in rather than always-on.
+DEFAULT_USE_HPSS = False
+
 
 @dataclass
 class PredictorConfig:
@@ -46,6 +79,9 @@ class PredictorConfig:
     n_mels: int = DEFAULT_N_MELS
     window_size: float = DEFAULT_WINDOW_SIZE
     min_clip_length: float = 1.0  # minimum audio length in seconds
+    max_analysis_seconds: float = DEFAULT_MAX_ANALYSIS_SECONDS
+    tempo_hop_length: int = DEFAULT_TEMPO_HOP_LENGTH
+    use_hpss: bool = DEFAULT_USE_HPSS
 
 
 class Predictor:
@@ -141,9 +177,42 @@ class Predictor:
         """
         start_time = time.monotonic()
         y, _ = await asyncio.to_thread(self._load_audio, audio_bytes)
-        bpm = await asyncio.to_thread(Predictor.estimate_bpm, y, sr=self.sr)
+        bpm = await asyncio.to_thread(
+            partial(
+                Predictor.estimate_bpm,
+                y,
+                sr=self.sr,
+                max_analysis_seconds=self.config.max_analysis_seconds,
+                hop_length=self.config.tempo_hop_length,
+                use_hpss=self.config.use_hpss,
+            )
+        )
         analysis_time = time.monotonic() - start_time
+        logger.debug("Analysed %s in %.2fs -> %s BPM", filename, analysis_time, bpm)
         return BPMResult(filename=filename, bpm=bpm, analysis_time=analysis_time)
+
+    @staticmethod
+    def _centre_excerpt(y: npt.NDArray[np.float32], sr: int, max_seconds: float) -> npt.NDArray[np.float32]:
+        """Return at most max_seconds of audio taken from the middle of the signal.
+
+        The middle is preferred over the head because intros are frequently sparse,
+        ambient or beatless, which biases a tempo estimate taken from the start.
+
+        Args:
+            y: Audio signal.
+            sr: Sample rate of ``y``.
+            max_seconds: Maximum excerpt length. Non-positive disables trimming.
+
+        Returns:
+            The excerpt, or ``y`` unchanged when it is already short enough.
+        """
+        if max_seconds <= 0:
+            return y
+        limit = int(max_seconds * sr)
+        if len(y) <= limit:
+            return y
+        start = (len(y) - limit) // 2
+        return y[start : start + limit]
 
     @staticmethod
     def estimate_bpm(
@@ -151,29 +220,67 @@ class Predictor:
         sr: int,
         preferred_min: float = 70.0,
         preferred_max: float = 190.0,
+        *,
+        max_analysis_seconds: float = DEFAULT_MAX_ANALYSIS_SECONDS,
+        hop_length: int = DEFAULT_TEMPO_HOP_LENGTH,
+        use_hpss: bool = DEFAULT_USE_HPSS,
     ) -> float | None:
-        """Estimate BPM using robust windowed tempo analysis (HPSS + windowed tempo + octave fold)."""
+        """Estimate BPM using windowed tempo analysis with octave folding.
+
+        The signal is trimmed to a centred excerpt, scanned with overlapping
+        windows, and the per-window tempo estimates are folded into the preferred
+        band before being combined by weighted mode.
+
+        Args:
+            y: Audio signal, expected mono and normalised.
+            sr: Sample rate of ``y``.
+            preferred_min: Lower edge of the preferred tempo band.
+            preferred_max: Upper edge of the preferred tempo band.
+            max_analysis_seconds: Cap on how much audio is analysed.
+            hop_length: Onset envelope hop, in samples. Smaller values raise tempo
+                resolution at the cost of more onset/tempo computation.
+            use_hpss: Apply harmonic/percussive separation first. Costly, and off
+                by default; enable for material where the beat is masked by
+                sustained harmonic content.
+
+        Returns:
+            Estimated tempo in BPM rounded to 0.1, or None if no reliable estimate
+            could be formed.
+        """
         if y is None or y.size == 0:
             return None
 
-        # 1) Emphasize percussive content
-        y_h, y_p = librosa.effects.hpss(y)
-        y_perc = y_p
+        # 1) Trim to a representative excerpt so cost does not scale with duration
+        y = Predictor._centre_excerpt(y, sr, max_analysis_seconds)
 
-        # 2) Slide over windows, estimate tempo per window
-        hop_length = 256
-        win_s, hop_s = 15.0, 7.5
-        win = int(win_s * sr)
-        hop = int(hop_s * sr)
+        # 2) Optionally emphasize percussive content
+        y_perc = librosa.effects.hpss(y)[1] if use_hpss else y
+
+        # 3) Slide over windows, estimate tempo per window. Clips shorter than the
+        #    nominal window are analysed whole rather than skipped outright.
+        win = int(DEFAULT_TEMPO_WINDOW_SECONDS * sr)
+        hop = int(DEFAULT_TEMPO_STRIDE_SECONDS * sr)
+        if len(y_perc) < win:
+            if len(y_perc) < MIN_TEMPO_WINDOW_SECONDS * sr:
+                return None
+            win = len(y_perc)
+        min_segment = win // 2
         bpms, weights = [], []
 
         for start in range(0, max(1, len(y_perc) - win + 1), hop):
             seg = y_perc[start : start + win]
-            if seg.size < win // 2:
+            if seg.size < min_segment:
                 continue
 
             oenv = librosa.onset.onset_strength(y=seg, sr=sr, hop_length=hop_length, aggregate=np.median)
             if oenv.size < 8 or not np.isfinite(oenv).all():
+                continue
+
+            # Skip windows with no onset energy. Silence still produces a finite
+            # (all-zero) envelope, and a zero-weighted histogram would otherwise
+            # degenerate to its first bin and report a fabricated tempo.
+            weight = float(np.mean(oenv))
+            if not np.isfinite(weight) or weight <= MIN_ONSET_ENERGY:
                 continue
 
             tempo = librosa_rhythm.tempo(
@@ -189,7 +296,7 @@ class Predictor:
                 continue
 
             bpms.append(bpm_seg)
-            weights.append(float(np.mean(oenv)))
+            weights.append(weight)
 
         if not bpms:
             return None
@@ -203,17 +310,17 @@ class Predictor:
             return x
 
         bpms_folded = np.array([_fold_into_range(x) for x in bpms], dtype=float)
-        weights = np.array(weights, dtype=float)
+        weight_arr = np.array(weights, dtype=float)
 
         # 4) Weighted mode via histogram, then refine via weighted average near the mode
         bins = np.arange(preferred_min, preferred_max + 0.5, 0.5)
-        hist, edges = np.histogram(bpms_folded, bins=bins, weights=weights)
+        hist, edges = np.histogram(bpms_folded, bins=bins, weights=weight_arr)
         idx = int(np.argmax(hist))
         bpm_mode = 0.5 * (edges[idx] + edges[idx + 1])
 
         mask = np.abs(bpms_folded - bpm_mode) <= 2.0
         if np.any(mask):
-            bpm_refined = float(np.average(bpms_folded[mask], weights=weights[mask]))
+            bpm_refined = float(np.average(bpms_folded[mask], weights=weight_arr[mask]))
         else:
             bpm_refined = float(bpm_mode)
 

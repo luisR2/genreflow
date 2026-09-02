@@ -14,7 +14,33 @@
 ## Phase 2: Production Ready
 
 - [ ] Test security concerns
-- [ ] Reduce processing time to <10s per track
+- [x] Reduce processing time to <10s per track
+
+### Tempo analysis performance
+
+Analysis of a 4.5 minute track went from ~9.0s to ~0.6s on the dev machine
+(~14x), and runtime is now flat with track length instead of linear.
+
+- Cap analysis to a centred 60s excerpt (`DEFAULT_MAX_ANALYSIS_SECONDS`).
+  Tempo is near-stationary, so a representative slice gives the same answer;
+  verified identical BPM for 60s / 120s / 300s / 600s versions of one track.
+- Make HPSS opt-in (`use_hpss`, default off). It was 91% of analysis time and
+  did not change the estimate on any benchmark clip, synthetic or real.
+- Halve the onset hop to 128 (`DEFAULT_TEMPO_HOP_LENGTH`). The old hop of 256
+  quantised the tempogram badly enough to report 174 BPM as 170.5 and 160 as
+  163.0; both are now correct.
+
+Two correctness fixes fell out of the benchmarking:
+
+- Silence reported a fabricated 70.2 BPM. A zero-energy onset envelope is
+  finite, so it passed the guards and collapsed the weighted histogram onto its
+  first bin. Windows below `MIN_ONSET_ENERGY` are now skipped, so silence
+  returns `None`.
+- Clips shorter than the 15s analysis window always returned `None`. They are
+  now analysed as a single window down to `MIN_TEMPO_WINDOW_SECONDS`.
+
+Still to verify: these timings are from the dev machine. The Raspberry Pi is
+substantially slower, so the <10s budget should be re-measured on the cluster.
 
 
 ## Phase 3: Enhanced Features

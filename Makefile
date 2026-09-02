@@ -1,7 +1,7 @@
 
 # Common Poetry targets
 # Phony targets
-.PHONY: install install-hooks list check update run dev frontend shell test lint format venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all argocd-apply kubectl-status compose-up compose-down docker-run-frontend predict-file predict-files-bulk shutdown-pis
+.PHONY: install install-hooks list check update run dev frontend shell test lint format venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all argocd-apply kubectl-status compose-up compose-down docker-run-frontend predict-file predict-files-bulk shutdown-pis bench
 
 POETRY ?= poetry
 POETRY_CMD := cd backend && $(POETRY)
@@ -61,6 +61,9 @@ dev:
 frontend:
 	$(POETRY_RUN) sh -c 'cd ../frontend && GENREFLOW_API_BASE_URL="$(GENREFLOW_API_BASE_URL)" $(FRONTEND_CMD)'
 
+bench:
+	$(POETRY_RUN) sh -c 'PYTHONPATH=.. python ../scripts/bench_bpm.py $(BENCH_ARGS)'
+
 test:
 	$(POETRY_RUN) pytest $(PYTEST_ARGS)
 
@@ -108,6 +111,7 @@ help:
 	@echo "  make frontend GENREFLOW_API_BASE_URL=.. -> run the frontend UI via uvicorn (default backend URL $(GENREFLOW_API_BASE_URL))"
 	@echo "  make shell       -> open an interactive Poetry shell (activates venv)"
 	@echo "  make test        -> run tests via pytest (poetry run pytest $(PYTEST_ARGS))"
+	@echo "  make bench [BENCH_ARGS=--real=PATH] -> benchmark BPM analysis time against the <10s budget"
 	@echo "  make lint        -> run ruff to lint the repository (poetry run ruff check .)"
 	@echo "  make format      -> run ruff formatter (poetry run ruff format .)"
 	@echo "  make venv PYTHON=.. -> show poetry venv path or set the environment Python (poetry env use $(PYTHON))"
