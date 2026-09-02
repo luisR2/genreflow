@@ -13,6 +13,9 @@
 
 ## Phase 2: Production Ready
 
+> Go-live sequencing lives in [go-live-plan.md](./go-live-plan.md).
+> Exposure method: Cloudflare Tunnel.
+
 - [ ] Test security concerns
 - [x] Reduce processing time to <10s per track
 

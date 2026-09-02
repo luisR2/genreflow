@@ -2,6 +2,11 @@
 
 Secure steps to expose the GenreFlow UI to the internet while keeping the Pi cluster and backend safe.
 
+> **Partly superseded.** Exposure is now via Cloudflare Tunnel, so the DNS + TLS
+> and Traefik ACME sections below no longer apply -- there are no inbound ports
+> and no cert-manager. The goals, auth, secrets and network-safety sections still
+> hold. See [go-live-plan.md](./go-live-plan.md) for the current sequencing.
+
 ## Goals
 - Public HTTPS endpoint for the frontend.
 - Keep Kubernetes API and Argo CD private.
