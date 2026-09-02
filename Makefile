@@ -1,7 +1,7 @@
 
 # Common Poetry targets
 # Phony targets
-.PHONY: install install-hooks list check update run dev frontend shell test lint format black venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all argocd-apply kubectl-status
+.PHONY: install install-hooks list check update run dev frontend shell test lint format venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all argocd-apply kubectl-status compose-up compose-down docker-run-frontend predict-file predict-files-bulk shutdown-pis
 
 POETRY ?= poetry
 POETRY_CMD := cd backend && $(POETRY)
@@ -70,9 +70,6 @@ lint:
 format:
 	$(POETRY_RUN) ruff format .
 
-format-black:
-	$(POETRY_RUN) black app/
-
 venv:
 	@$(POETRY_CMD) env info --path || (echo "No virtualenv found. Run 'make install' first." && exit 1)
 
@@ -112,8 +109,7 @@ help:
 	@echo "  make shell       -> open an interactive Poetry shell (activates venv)"
 	@echo "  make test        -> run tests via pytest (poetry run pytest $(PYTEST_ARGS))"
 	@echo "  make lint        -> run ruff to lint the repository (poetry run ruff check .)"
-	@echo "  make format-black -> run ruff formatter"
-	@echo "  make black       -> run Black formatter"
+	@echo "  make format      -> run ruff formatter (poetry run ruff format .)"
 	@echo "  make venv PYTHON=.. -> show poetry venv path or set the environment Python (poetry env use $(PYTHON))"
 	@echo "  make docker-build-backend -> build the backend Docker image (BACKEND_IMAGE=$(BACKEND_IMAGE), IMAGE_TAG=$(IMAGE_TAG))"
 	@echo "  make docker-build-frontend -> build the frontend Docker image (FRONTEND_IMAGE=$(FRONTEND_IMAGE), IMAGE_TAG=$(IMAGE_TAG))"
@@ -123,6 +119,11 @@ help:
 	@echo "  make docker-push-frontend DOCKERHUB_USERNAME=... [IMAGE_TAG=...] -> build and push frontend to Docker Hub"
 	@echo "  make predict-file FILE=.. -> predict genre for an audio file (optional: TOP_K=3, HOST=$(HOST))"
 	@echo "  make predict-files-bulk FILES=.. -> predict multiple audio files; supports FILES_LIST=path for long lists (optional: HOST=$(HOST))"
+	@echo "  make compose-up   -> start backend and frontend via docker compose"
+	@echo "  make compose-down -> stop the docker compose stack"
+	@echo "  make argocd-apply -> apply the ArgoCD Application manifests"
+	@echo "  make kubectl-status -> show pods/deployments/services in both namespaces"
+	@echo "  make shutdown-pis -> gracefully shut down all Raspberry Pi cluster nodes"
 	@echo "  make help         -> show this help message"
 
 docker-login:
@@ -173,7 +174,6 @@ compose-up:
 compose-down:
 	docker compose down
 
-
 #TODO: Add a target to kubeseal the docker hub secret before pushing the YAML to GitHub.
 
 argocd-apply:
@@ -185,3 +185,9 @@ kubectl-status:
 	@echo ""
 	@echo "=== Frontend ==="
 	kubectl get pods,deployments,svc -n genreflow-frontend
+
+
+# Shutdown PIs
+
+shutdown-pis:
+	./scripts/shutdown_pis.sh 2>&1
