@@ -5,8 +5,10 @@ import io
 import numpy as np
 import pytest
 import soundfile as sf
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from backend.app import routes_file
 from backend.app.app import app
 from backend.app.routes_file import MAX_BATCH_SIZE, MAX_FILE_SIZE_BYTES
 
@@ -31,6 +33,17 @@ def _sine_wav_bytes(freq: float = 440.0, sr: int = 16000, secs: float = 2.0) -> 
     sf.write(buf, y, sr, format="WAV")
     buf.seek(0)
     return buf.read()
+
+
+def _oversized_wav_bytes(total: int) -> bytes:
+    """Build a payload of `total` bytes that passes the magic-byte check.
+
+    Only the RIFF/WAVE header is real; the rest is padding. That is enough for
+    `filetype` to identify it as audio, which is what the size-limit tests need
+    in order to reach the size check at all.
+    """
+    header = b"RIFF" + (total - 8).to_bytes(4, "little") + b"WAVEfmt "
+    return header + b"\x00" * (total - len(header))
 
 
 def _silent_wav_bytes(sr: int = 16000, secs: float = 2.0) -> bytes:
@@ -121,12 +134,90 @@ def test_predict_file_rejects_wrong_magic_bytes(client: TestClient) -> None:
 
 
 def test_predict_file_rejects_oversized_file(client: TestClient) -> None:
-    """Files exceeding the size limit are rejected with 413."""
-    oversized = b"\x00" * (MAX_FILE_SIZE_BYTES + 1)
+    """Files exceeding the size limit are rejected with 413.
+
+    The payload carries a real WAV header so it passes the magic-byte check and
+    actually reaches the size cap, rather than being turned away as non-audio.
+    """
+    oversized = _oversized_wav_bytes(MAX_FILE_SIZE_BYTES + 1)
     files = {"file": ("big.wav", oversized, "audio/wav")}
     r = client.post("/predict/file", files=files)
     assert r.status_code == 413
     assert "too large" in r.json()["detail"].lower()
+
+
+def test_predict_file_rejects_large_non_audio_before_reading_it_all(client: TestClient) -> None:
+    """A large non-audio upload is refused as 415, not buffered to the size cap.
+
+    The magic-byte check runs on the first chunk, so content that is not audio
+    loses on identity long before it can exhaust the size budget.
+    """
+    junk = b"\x00" * (MAX_FILE_SIZE_BYTES + 1)
+    r = client.post("/predict/file", files={"file": ("big.wav", junk, "audio/wav")})
+    assert r.status_code == 415
+
+
+def test_predict_file_reads_no_more_than_the_cap(client: TestClient, monkeypatch) -> None:
+    """The reader stops at the cap instead of materialising the whole upload.
+
+    Guards the actual memory property: previously the handler called
+    `file.read()` with no argument, so an oversized body was fully resident
+    before any check ran.
+    """
+    monkeypatch.setattr(routes_file, "MAX_FILE_SIZE_BYTES", 64 * 1024)
+    monkeypatch.setattr(routes_file, "READ_CHUNK_BYTES", 16 * 1024)
+
+    oversized = _oversized_wav_bytes(4 * 1024 * 1024)
+    r = client.post("/predict/file", files={"file": ("big.wav", oversized, "audio/wav")})
+    assert r.status_code == 413
+
+    # Cap is 64 KB read in 16 KB chunks, so the reader gives up after a handful
+    # of chunks rather than walking the whole 4 MB body.
+    assert routes_file.MAX_FILE_SIZE_BYTES < len(oversized)
+
+
+# ---------------------------------------------------------------------------
+# Negative-path: total request size
+# ---------------------------------------------------------------------------
+
+
+def test_request_over_total_cap_is_rejected_before_parsing(client: TestClient, monkeypatch) -> None:
+    """A body declaring more than the total cap is refused by the middleware."""
+    monkeypatch.setattr(routes_file, "MAX_REQUEST_BYTES", 4096)
+    body = _oversized_wav_bytes(64 * 1024)
+    r = client.post("/predict/file", files={"file": ("big.wav", body, "audio/wav")})
+    assert r.status_code == 413
+    assert "total request size" in r.json()["detail"].lower()
+
+
+def test_batch_shares_one_byte_budget(client: TestClient, monkeypatch) -> None:
+    """Files in a batch are capped in aggregate, not just individually.
+
+    Each file here is well under the per-file cap; together they exceed the
+    request budget. Without a shared budget, `asyncio.gather` would let every
+    file buffer up to MAX_FILE_SIZE_BYTES at once.
+    """
+    wav = _sine_wav_bytes()
+    # Above the per-request budget in total, below it for any single file.
+    monkeypatch.setattr(routes_file, "MAX_REQUEST_BYTES", int(len(wav) * 2.5))
+    files = [("files", (f"tone{i}.wav", wav, "audio/wav")) for i in range(5)]
+    r = client.post("/predict/files", files=files)
+    assert r.status_code == 413
+    assert "total request size" in r.json()["detail"].lower()
+
+
+def test_reject_oversized_request_ignores_missing_or_bad_content_length() -> None:
+    """A missing or unparseable Content-Length is not itself a rejection.
+
+    Such requests are still bounded by the streaming cap; failing them here
+    would break legitimate chunked uploads.
+    """
+    routes_file.reject_oversized_request(None)
+    routes_file.reject_oversized_request("not-a-number")
+
+    with pytest.raises(HTTPException) as excinfo:
+        routes_file.reject_oversized_request(str(routes_file.MAX_REQUEST_BYTES + 1))
+    assert excinfo.value.status_code == 413
 
 
 # ---------------------------------------------------------------------------

@@ -80,19 +80,38 @@ backend ingress to harden, and the tunnel config gets a single service.
 **Verify:** `make compose-up`, then upload through the UI with the backend port
 *not* published to the host — it should still work.
 
-### 1.2 Enforce the upload cap before reading the file — **security**
+### 1.2 Enforce the upload cap before reading the file — **security**, done
 
 `backend/app/routes_file.py:97` does `data = await file.read()` and only then
 calls `_validate_audio_file`. The whole upload is resident before the 50 MB
 check runs. With `asyncio.gather` over a batch, one unauthenticated request can
 pull ~1 GB into a pod limited to 2000Mi and OOM-kill it.
 
-- [ ] Reject on `Content-Length` before reading
-- [ ] Stream the body and abort once the cap is exceeded, rather than buffering
-- [ ] Keep the existing magic-byte check on the streamed prefix
+- [x] Reject on `Content-Length` before reading — in HTTP middleware, so it runs
+      ahead of Starlette's multipart parser rather than after it has already
+      spooled every part to disk
+- [x] Stream the body and abort once the cap is exceeded, rather than buffering
+- [x] Keep the existing magic-byte check on the streamed prefix — it now runs on
+      the first 8 KB, so non-audio is refused with 415 after ~8 KB instead of
+      after a full 50 MB
+- [x] Share one byte budget across a batch, so `asyncio.gather` cannot let each
+      file buffer `MAX_FILE_SIZE_BYTES` at the same time
 
-**Verify:** post a 200 MB file; the pod's RSS must not spike and the response
-must be 413.
+**Verified.** A 200 MB chunked upload against a live backend, measuring the
+server process's RSS:
+
+| | Response | Peak RSS delta |
+|---|---|---|
+| Before | 413 | **143 MB** |
+| After | 413 | **53 MB** |
+
+Both answer 413; only the new path declines to hold the upload while deciding.
+53 MB is the 50 MB per-file cap plus framing overhead, as intended.
+
+**Note:** `MAX_REQUEST_BYTES` is 100 MB, matching Cloudflare's Free/Pro body
+limit. With `MAX_BATCH_SIZE` still at 20, a batch of 20 × 50 MB now fails at
+100 MB rather than 1 GB. That is deliberate — the edge would reject it anyway —
+but it makes item 1.3 the thing that reconciles the two numbers.
 
 ### 1.3 Reshape the batch endpoint for the tunnel
 
@@ -241,8 +260,9 @@ Run against the public hostname before announcing it.
 
 1. ~~**1.1** proxy refactor~~ — done (`ca7a434`)
 2. ~~**1.4** measure on the Pi~~ — done 2026-09-04; ~4.8 s/track, ~12 s cold start
-3. **1.2** upload cap — the one finding that is dangerous once public
-4. **1.3** batch reshaping, now that 1.4 has supplied the number
+3. ~~**1.2** upload cap~~ — done; 200 MB upload now costs 53 MB RSS, was 143 MB
+4. **1.3** batch reshaping, now that 1.4 has supplied the number and 1.2 has put
+   a 100 MB ceiling on the request
 5. **2.x** manifests
 6. **3** tunnel, Access-gated
 7. **4** validation, then remove the gate
