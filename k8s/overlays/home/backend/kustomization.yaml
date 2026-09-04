@@ -4,3 +4,11 @@ kind: Kustomization
 resources:
   - ../../../base/backend
   - dockerhub-secret-sealed.yaml
+
+# Image tag is pinned here rather than tracking `:latest`, so the manifest says
+# exactly which build is running. CI rewrites newTag on every push to main; that
+# commit is what ArgoCD syncs, which is also what makes a rollback possible --
+# revert the tag, let ArgoCD apply it.
+images:
+  - name: luisrr/genreflow-backend
+    newTag: 4eecbf8

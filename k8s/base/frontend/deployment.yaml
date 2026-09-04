@@ -8,7 +8,9 @@ metadata:
     app.kubernetes.io/component: ui
     app.kubernetes.io/part-of: genreflow
 spec:
-  replicas: 1
+  # Two replicas so a rollout or a node reboot does not take the site down --
+  # this is the only thing a visitor talks to.
+  replicas: 2
   revisionHistoryLimit: 3
   selector:
     matchLabels:
@@ -22,6 +24,26 @@ spec:
         app.kubernetes.io/part-of: genreflow
     spec:
       serviceAccountName: genreflow-frontend
+      # The proxy never calls the Kubernetes API.
+      automountServiceAccountToken: false
+      # Keep the two replicas off the same node, so losing one node cannot take
+      # both. Soft, because the cluster is small enough that a hard rule could
+      # leave a pod unschedulable.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: genreflow
+                    app.kubernetes.io/component: ui
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
@@ -32,8 +54,17 @@ spec:
       containers:
         - name: genreflow-frontend
           image: luisrr/genreflow-frontend:latest
-          imagePullPolicy: Always
+          # Overlay pins an immutable SHA tag; nothing to re-pull.
+          imagePullPolicy: IfNotPresent
           env:
+            - name: TMPDIR
+              value: /tmp
+            - name: HOME
+              value: /tmp
+            # site-packages is read-only now, so Python cannot cache bytecode
+            # there. Say so explicitly rather than letting it fail silently.
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
             - name: GENREFLOW_API_BASE_URL
               # Backend is ClusterIP-only and has no ingress; it is reachable
               # solely through this service's /api proxy.
@@ -41,6 +72,9 @@ spec:
           ports:
             - name: http
               containerPort: 3000
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           livenessProbe:
             httpGet:
               path: /healthz
@@ -62,11 +96,15 @@ spec:
               cpu: 50m
               memory: 128Mi
             limits:
-              # TODO: adjust limits based on the workload
+              # The proxy streams request bodies through rather than buffering
+              # them, so it stays cheap; it was previously left with no CPU
+              # limit at all, which let it compete with the analyser.
+              cpu: 500m
               memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-            readOnlyRootFilesystem: false
+            # Serves static files and proxies; writes nothing outside /tmp.
+            readOnlyRootFilesystem: true

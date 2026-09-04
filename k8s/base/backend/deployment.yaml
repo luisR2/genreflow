@@ -32,6 +32,20 @@ spec:
                 values:
                 - master
       serviceAccountName: genreflow-backend
+      # Neither service talks to the Kubernetes API, so the pod has no use for a
+      # projected token. Not mounting it means a compromised container cannot
+      # present one.
+      automountServiceAccountToken: false
+      volumes:
+        # Writable scratch, required because the root filesystem is read-only.
+        # Backed by RAM rather than the node's disk: Starlette spools every
+        # multipart part above 1 MB to a temp file, and the nodes boot from SD
+        # cards, which wear out under sustained writes. sizeLimit counts against
+        # the container's memory limit, so it is kept well under it.
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
@@ -42,10 +56,33 @@ spec:
       containers:
         - name: genreflow
           image: luisrr/genreflow-backend:latest
-          imagePullPolicy: Always
+          # Tags are pinned to a commit SHA in the overlay, so they are
+          # immutable and there is nothing to re-pull.
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               name: http
+          env:
+            # Everything that wants to write must be pointed at the tmpfs above,
+            # or the read-only root filesystem turns these into startup errors.
+            # numba is the one that matters: librosa JIT-compiles through it.
+            - name: TMPDIR
+              value: /tmp
+            - name: HOME
+              value: /tmp
+            - name: NUMBA_CACHE_DIR
+              value: /tmp/numba
+            - name: MPLCONFIGDIR
+              value: /tmp/matplotlib
+            - name: XDG_CACHE_HOME
+              value: /tmp/cache
+            # site-packages is read-only now, so Python cannot cache bytecode
+            # there. Say so explicitly rather than letting it fail silently.
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           startupProbe:
             httpGet:
               path: /healthz
@@ -80,5 +117,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-            # Run as non-root is enforced at the pod level; keep root FS writable for now.
-            readOnlyRootFilesystem: false
+            # Nothing legitimately writes outside /tmp, which is mounted from an
+            # emptyDir above.
+            readOnlyRootFilesystem: true

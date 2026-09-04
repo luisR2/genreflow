@@ -4,3 +4,8 @@ kind: Kustomization
 resources:
   - ../../../base/frontend
   - dockerhub-secret-sealed.yaml
+
+# See the backend overlay: the tag is pinned and CI-maintained, not `:latest`.
+images:
+  - name: luisrr/genreflow-frontend
+    newTag: 4eecbf8

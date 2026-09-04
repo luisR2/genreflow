@@ -4,10 +4,16 @@ metadata:
   name: genreflow-frontend
   namespace: genreflow-frontend
   annotations:
+    # Plain HTTP on the internal entrypoint only. `cloudflared` reaches this
+    # Service from inside the cluster and TLS terminates at Cloudflare, so there
+    # is no websecure entrypoint here and no port opened at the router.
     traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
   ingressClassName: traefik
   rules:
+    # TODO(phase-3): replace with the real public hostname once the domain is
+    # registered, so Traefik routes tunnel traffic. Until then this stays a
+    # LAN-only name.
     - host: ui.genreflow.local
       http:
         paths:

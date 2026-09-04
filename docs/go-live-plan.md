@@ -181,7 +181,7 @@ but it means the first visitor after any deploy, restart or scale-up waits ~15 s
 
 ## Phase 2 — Manifests
 
-### 2.1 Pin image tags — **GitOps correctness**
+### 2.1 Pin image tags — **GitOps correctness**, done
 
 Both deployments use `:latest` with `imagePullPolicy: Always`
 (`k8s/base/backend/deployment.yaml:44`, `k8s/base/frontend/deployment.yaml:36`).
@@ -191,24 +191,48 @@ With `latest`: ArgoCD sees no spec change when you ship, so it isn't tracking
 what actually runs; you cannot roll back; and two pods of the same Deployment
 can silently run different code after a restart.
 
-- [ ] Set the image tag in the overlay via a kustomize `images:` block
-- [ ] Have CI bump that tag and commit, or adopt ArgoCD Image Updater
-- [ ] Drop `imagePullPolicy: Always` once tags are immutable
+- [x] Set the image tag in the overlay via a kustomize `images:` block
+- [x] Have CI bump that tag and commit — a "Pin image tag in the overlays" step
+      rewrites `newTag` after the build and pushes with `[skip ci]`, so the
+      commit ArgoCD syncs names the image that was actually built
+- [x] Drop `imagePullPolicy: Always` — now `IfNotPresent`, since SHA tags are
+      immutable and there is nothing to re-pull
 
-### 2.2 Harden the pods
+### 2.2 Harden the pods — done, but **not yet smoke-tested**
 
-- [ ] `readOnlyRootFilesystem: true` on both containers, with an `emptyDir` at
-      `/tmp` (currently `false` in both)
-- [ ] Add a CPU limit to the frontend (it has memory only)
-- [ ] Add `automountServiceAccountToken: false` — neither service calls the K8s API
-- [ ] Consider `replicas: 2` on the frontend so rollouts don't drop the site
+- [x] `readOnlyRootFilesystem: true` on both containers, with an `emptyDir` at
+      `/tmp`. The emptyDir uses `medium: Memory`, which also keeps Starlette's
+      multipart spooling off the nodes' SD cards — a real concern, since every
+      upload over 1 MB is written to a temp file and the cards wear out
+- [x] Point everything that writes at that tmpfs: `TMPDIR`, `HOME`,
+      `NUMBA_CACHE_DIR`, `MPLCONFIGDIR`, `XDG_CACHE_HOME`, plus
+      `PYTHONDONTWRITEBYTECODE=1` since site-packages is no longer writable.
+      numba is the one that matters — librosa JIT-compiles through it
+- [x] Add a CPU limit to the frontend: `500m`. It had memory only, so it could
+      compete with the analyser for CPU
+- [x] Add `automountServiceAccountToken: false` on both
+- [x] `replicas: 2` on the frontend, with soft pod anti-affinity so the two do
+      not land on the same node
+
+**Untested.** `readOnlyRootFilesystem` is the one change here that can crashloop
+a pod, and neither the cluster nor Docker was available to try it. ArgoCD syncs
+this repo with `automated.selfHeal` and `prune`, so it will apply on its own once
+the cluster is back. Run the container read-only locally first:
+
+    docker run --rm --read-only --tmpfs /tmp \
+      -e NUMBA_CACHE_DIR=/tmp/numba -e HOME=/tmp \
+      luisrr/genreflow-backend:<tag>
+
+then hit `/healthz` and analyse one file, so the JIT path actually runs.
 
 ### 2.3 Ingress
 
-- [ ] Delete the backend ingress (see 1.1)
-- [ ] Keep the frontend ingress internal — `cloudflared` reaches it in-cluster, so
-      it stays plain HTTP on `web`. **Do not** open 80/443 at the router.
-- [ ] Set the ingress host to the real hostname so Traefik routes tunnel traffic
+- [x] Delete the backend ingress — done in 1.1
+- [x] Keep the frontend ingress internal — documented on the manifest: plain HTTP
+      on the `web` entrypoint, no `websecure`, no port opened at the router
+- [ ] Set the ingress host to the real hostname so Traefik routes tunnel traffic.
+      **Blocked on Phase 0** — the domain is not registered yet, so the host is
+      still `ui.genreflow.local` with a TODO on it
 
 ---
 
@@ -274,7 +298,7 @@ Run against the public hostname before announcing it.
 2. ~~**1.4** measure on the Pi~~ — done 2026-09-04; ~4.8 s/track, ~12 s cold start
 3. ~~**1.2** upload cap~~ — done; 200 MB upload now costs 53 MB RSS, was 143 MB
 4. ~~**1.3** batch reshaping~~ — done; per-file uploads, batch capped at 8
-5. **2.x** manifests
+5. ~~**2.x** manifests~~ — 2.1 and 2.2 done; 2.3 waits on the hostname
 6. **3** tunnel, Access-gated
 7. **4** validation, then remove the gate
 
