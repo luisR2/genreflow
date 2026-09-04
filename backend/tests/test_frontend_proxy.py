@@ -194,5 +194,19 @@ def test_browser_bundle_uses_same_origin_api(proxied):
     """app.js must call the same-origin proxy, never an absolute backend URL."""
     client, _ = proxied
     js = client.get("/static/app.js").text
-    assert "/api/predict/files" in js
+    assert "/api/predict/file" in js
     assert "apiBaseUrl" not in js
+
+
+def test_browser_bundle_uploads_one_file_per_request(proxied):
+    """The UI must not use the bulk endpoint.
+
+    One request per file is what keeps an upload inside the body-size and
+    origin-timeout limits a tunnel imposes, however many files are queued. A
+    regression here would not fail any backend test, so it is asserted on the
+    shipped bundle.
+    """
+    client, _ = proxied
+    js = client.get("/static/app.js").text
+    assert '"/api/predict/file"' in js
+    assert "/api/predict/files" not in js

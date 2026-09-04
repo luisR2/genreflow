@@ -47,7 +47,7 @@ User -> Frontend (port 3000) -> /api proxy -> Backend (port 8080) -> Audio Proce
 
 **Frontend** (`frontend/`):
 - Minimal FastAPI serving static HTML/CSS/JS
-- Drag-and-drop file upload UI
+- Drag-and-drop file upload UI, uploading one file per request
 - Proxies uploads to the backend at `POST /api/predict/{file,files}`, so the
   browser only ever talks to the frontend's own origin. The backend is
   ClusterIP-only with no ingress, and needs no CORS.
@@ -56,11 +56,15 @@ User -> Frontend (port 3000) -> /api proxy -> Backend (port 8080) -> Audio Proce
 - `GET /healthz` - Liveness probe
 - `GET /readyz` - Readiness probe (checks if predictor loaded)
 - `POST /predict/file` - Single file BPM analysis
-- `POST /predict/files` - Bulk file BPM analysis
+- `POST /predict/files` - Bulk BPM analysis, max 8 files (scripted callers only;
+  the UI uploads one file per request)
 
 **Frontend endpoints** (what the browser actually calls):
 - `GET /` - SPA shell, `GET /healthz` - liveness
-- `POST /api/predict/file` and `POST /api/predict/files` - proxied to the backend
+- `POST /api/predict/file` - proxied to the backend. The UI sends one request per
+  file and renders each result as it lands, so no single request has to carry a
+  whole selection.
+- `POST /api/predict/files` - also proxied, but unused by the browser.
 
 ## Code Style
 

@@ -67,58 +67,108 @@
     renderList();
   };
 
+  // Mirrors MAX_FILE_SIZE_BYTES in backend/app/routes_file.py. Checked here only
+  // to fail fast; the backend is the authority and enforces it again.
+  const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+  const addResultRow = ({ filename, bpm, analysisTime, error }) => {
+    const row = document.createElement("tr");
+    if (error) row.className = "row-error";
+
+    const name = document.createElement("td");
+    name.textContent = filename;
+
+    const bpmCell = document.createElement("td");
+    bpmCell.textContent = typeof bpm === "number" ? bpm.toFixed(1) : "–";
+
+    const last = document.createElement("td");
+    last.textContent = error ? error : formatSeconds(analysisTime);
+
+    row.appendChild(name);
+    row.appendChild(bpmCell);
+    row.appendChild(last);
+    resultsBody.appendChild(row);
+  };
+
+  const errorDetail = async (res) => {
+    try {
+      return (await res.json()).detail || "";
+    } catch (_) {
+      try {
+        return await res.text();
+      } catch (_) {
+        return "";
+      }
+    }
+  };
+
+  const analyzeOne = async (file) => {
+    const form = new FormData();
+    form.append("file", file);
+
+    const res = await fetch("/api/predict/file", { method: "POST", body: form });
+    if (!res.ok) {
+      const detail = await errorDetail(res);
+      throw new Error(detail || `Request failed (${res.status})`);
+    }
+    return res.json();
+  };
+
+  // Files are sent one request at a time rather than as a single batch. Each
+  // result renders as it lands, and no single request has to carry the whole
+  // selection -- which keeps every upload well inside the proxy's body-size and
+  // response-timeout limits no matter how many files are queued.
   const sendFiles = async () => {
     if (!files.length) {
       setStatus("Add at least one audio file", "warn");
       return;
     }
 
-    setStatus("Analyzing...");
     analyzeButton.disabled = true;
+    clearButton.disabled = true;
+    resultsBody.innerHTML = "";
+    resultsPanel.classList.remove("hidden");
+    totalTime.textContent = "Total: –";
 
-    const form = new FormData();
-    files.forEach((file) => form.append("files", file));
+    let elapsed = 0;
+    let failures = 0;
 
-    try {
-      const res = await fetch("/api/predict/files", {
-        method: "POST",
-        body: form,
-      });
+    for (const [index, file] of files.entries()) {
+      setStatus(`Analyzing ${index + 1} of ${files.length}: ${file.name}`);
 
-      if (!res.ok) {
-        let detail = "";
-        try {
-          detail = (await res.json()).detail || "";
-        } catch (_) {
-          detail = await res.text();
-        }
-        throw new Error(detail || `Request failed (${res.status})`);
+      if (file.size > MAX_FILE_BYTES) {
+        addResultRow({ filename: file.name, error: "Too large (max 50 MB)" });
+        failures += 1;
+        continue;
       }
 
-      const data = await res.json();
-      resultsBody.innerHTML = "";
-      data.results.forEach((item) => {
-        const row = document.createElement("tr");
-        const name = document.createElement("td");
-        name.textContent = item.filename;
-        const bpm = document.createElement("td");
-        bpm.textContent = item.bpm ? item.bpm.toFixed(1) : "–";
-        const time = document.createElement("td");
-        time.textContent = formatSeconds(item.analysis_time);
-        row.appendChild(name);
-        row.appendChild(bpm);
-        row.appendChild(time);
-        resultsBody.appendChild(row);
-      });
-      totalTime.textContent = `Total: ${formatSeconds(data.analysis_time)}`;
-      resultsPanel.classList.remove("hidden");
-      setStatus("Done", "success");
-    } catch (err) {
-      setStatus(err.message || "Upload failed.", "error");
-      console.error(err);
-    } finally {
-      analyzeButton.disabled = false;
+      try {
+        const item = await analyzeOne(file);
+        elapsed += item.analysis_time || 0;
+        addResultRow({
+          filename: item.filename,
+          bpm: item.bpm,
+          analysisTime: item.analysis_time,
+        });
+        totalTime.textContent = `Total: ${formatSeconds(elapsed)}`;
+      } catch (err) {
+        addResultRow({ filename: file.name, error: err.message || "Failed" });
+        failures += 1;
+        console.error(file.name, err);
+      }
     }
+
+    const analyzed = files.length - failures;
+    if (failures === 0) {
+      setStatus("Done", "success");
+    } else if (analyzed === 0) {
+      setStatus(`All ${files.length} file${files.length > 1 ? "s" : ""} failed`, "error");
+    } else {
+      setStatus(`Done, ${failures} of ${files.length} failed`, "warn");
+    }
+
+    analyzeButton.disabled = false;
+    clearButton.disabled = false;
   };
 
   // Events

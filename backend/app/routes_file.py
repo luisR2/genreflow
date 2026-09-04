@@ -36,7 +36,15 @@ MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 # a larger body would be rejected at the edge anyway once the tunnel is live.
 MAX_REQUEST_BYTES = 100 * 1024 * 1024  # 100 MB
 
-MAX_BATCH_SIZE = 20
+# Batch ceiling for direct API callers. The UI no longer uses this endpoint --
+# it uploads one file per request -- so this only bounds scripted clients.
+#
+# Derived from the measured Pi timing rather than picked: analysis is ~4.8 s per
+# track worst case on a cluster node, and a proxy or tunnel in front of this
+# service typically gives up on the origin at 100 s. Eight tracks is ~38 s, which
+# leaves room for slower material and request overhead. Twenty was ~96 s, close
+# enough to the ceiling that a single slow track would have blown it.
+MAX_BATCH_SIZE = 8
 
 # Read granularity when streaming an upload. Small enough that the cap is caught
 # promptly, large enough not to make a 50 MB file thousands of awaits.

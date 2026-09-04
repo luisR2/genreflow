@@ -109,19 +109,31 @@ Both answer 413; only the new path declines to hold the upload while deciding.
 53 MB is the 50 MB per-file cap plus framing overhead, as intended.
 
 **Note:** `MAX_REQUEST_BYTES` is 100 MB, matching Cloudflare's Free/Pro body
-limit. With `MAX_BATCH_SIZE` still at 20, a batch of 20 × 50 MB now fails at
-100 MB rather than 1 GB. That is deliberate — the edge would reject it anyway —
-but it makes item 1.3 the thing that reconciles the two numbers.
+limit. Item 1.3 reconciled this with the batch size, which is now 8.
 
-### 1.3 Reshape the batch endpoint for the tunnel
+### 1.3 Reshape the batch endpoint for the tunnel — **done**
 
-- [ ] Decide: per-file requests from the frontend (recommended), or a total-bytes
-      cap on the batch that stays under 100 MB
-- [ ] If per-file: have `app.js` upload sequentially and render each result as it
-      lands — better UX and it removes the 524 risk entirely
-- [ ] Re-derive `MAX_BATCH_SIZE` from the measured Pi timing. At ~4.8 s/track the
-      current 20 gives ~96 s against a 100 s ceiling; **8 is the largest batch
-      with a sane margin**, and only if the pod is already warm.
+- [x] Decided: **per-file requests** from the frontend. It removes the 100 s
+      timeout and 100 MB body risks outright rather than managing them, and no
+      single request has to carry a whole selection however many files are queued
+- [x] `app.js` uploads sequentially and renders each result as it lands. A file
+      that fails gets its own row with the reason instead of aborting the run,
+      and the 50 MB cap is mirrored client-side purely to fail fast
+- [x] `MAX_BATCH_SIZE` 20 → **8**, derived from the measured ~4.8 s/track: eight
+      tracks is ~38 s against the 100 s ceiling, where twenty was ~96 s. The bulk
+      endpoint now only bounds scripted callers; the browser does not use it
+
+**Verified** end-to-end against a live backend and frontend, uploading through
+the proxy:
+
+    a_90.wav     status 200  bpm 90.4   truth 90.0
+    b_128.wav    status 200  bpm 127.1  truth 128.0
+    c_174.wav    status 200  bpm 174.4  truth 174.0
+    60 MB file   status 413  File too large. Maximum allowed size is 50 MB.
+    non-audio    status 415  File content does not appear to be a supported audio format
+    9 files      status 413  Too many files. Maximum batch size is 8.
+
+This also resolves the 100 MB / 20-file conflict item 1.2 left open.
 
 ### 1.4 Measure on the Pi — **done 2026-09-04**
 
@@ -261,8 +273,7 @@ Run against the public hostname before announcing it.
 1. ~~**1.1** proxy refactor~~ — done (`ca7a434`)
 2. ~~**1.4** measure on the Pi~~ — done 2026-09-04; ~4.8 s/track, ~12 s cold start
 3. ~~**1.2** upload cap~~ — done; 200 MB upload now costs 53 MB RSS, was 143 MB
-4. **1.3** batch reshaping, now that 1.4 has supplied the number and 1.2 has put
-   a 100 MB ceiling on the request
+4. ~~**1.3** batch reshaping~~ — done; per-file uploads, batch capped at 8
 5. **2.x** manifests
 6. **3** tunnel, Access-gated
 7. **4** validation, then remove the gate

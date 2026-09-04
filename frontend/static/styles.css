@@ -270,6 +270,12 @@ body {
   background: rgba(61, 224, 178, 0.05);
 }
 
+/* A file that failed still gets a row, so a bad file in a long queue is
+   visible rather than silently missing from the results. */
+.results-table tbody tr.row-error td:last-child {
+  color: var(--danger);
+}
+
 .hidden {
   display: none;
 }
