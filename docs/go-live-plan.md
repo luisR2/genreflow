@@ -23,14 +23,16 @@ before writing code, because they set the batch and file caps.
 | Max request body (Free/Pro) | **100 MB** | Current caps allow `20 × 50 MB = 1 GB` per request. Cloudflare rejects the request long before the backend sees it. |
 | Origin response timeout | **100 s** (error 524) | A 20-file batch on a Pi can exceed this. Enterprise can raise it to 600 s; Free cannot. |
 
-Analysis is ~0.6 s/track on a dev laptop. The Pi is materially slower and
-**has not been measured** — run `make bench` on a node before trusting any
-batch-size arithmetic. If the Pi lands at ~5 s/track, a 20-file batch is ~100 s,
-i.e. exactly at the timeout.
+Analysis is ~0.6 s/track on a dev laptop. **Measured on the Pi (item 1.4): ~4.8 s
+worst case per track**, plus a one-off ~12 s JIT warm-up per pod.
 
-**Implication:** the current bulk endpoint is the wrong shape for a tunnel.
-Uploading files one request at a time sidesteps both limits and lets results
-stream in progressively. See item 1.3.
+That lands almost exactly on the bad case the earlier draft guessed at: a 20-file
+batch is **~96 s of CPU work against a 100 s timeout**, before counting warm-up
+or any concurrency the 2-CPU limit cannot deliver. There is no headroom.
+
+**Implication:** the current bulk endpoint is the wrong shape for a tunnel —
+now confirmed by measurement, not assumed. Uploading files one request at a time
+sidesteps both limits and lets results stream in progressively. See item 1.3.
 
 ---
 
@@ -98,13 +100,42 @@ must be 413.
       cap on the batch that stays under 100 MB
 - [ ] If per-file: have `app.js` upload sequentially and render each result as it
       lands — better UX and it removes the 524 risk entirely
-- [ ] Re-derive `MAX_BATCH_SIZE` from a measured Pi timing, not from the current 20
+- [ ] Re-derive `MAX_BATCH_SIZE` from the measured Pi timing. At ~4.8 s/track the
+      current 20 gives ~96 s against a 100 s ceiling; **8 is the largest batch
+      with a sane margin**, and only if the pod is already warm.
 
-### 1.4 Measure on the Pi
+### 1.4 Measure on the Pi — **done 2026-09-04**
 
-- [ ] Run `make bench` on a cluster node; record the worst case
-- [ ] If a track exceeds ~10 s there, revisit `DEFAULT_MAX_ANALYSIS_SECONDS`
-      (currently 60 s of audio analysed)
+Measured in the backend pod on `k8s-node2` (Raspberry Pi 4 Model B, 4 cores,
+container limited to 2 CPU / 2000Mi), running current `main` code:
+
+| Clip | Analysis time |
+|---|---|
+| 30 s audio | ~2.0 s |
+| 180 s audio | ~4.4 s |
+| 300 s audio | ~4.4 s |
+
+- [x] Run `make bench` on a cluster node; record the worst case
+- [x] Steady-state worst case is **~4.8 s/track**, comfortably inside the 10 s
+      budget. `DEFAULT_MAX_ANALYSIS_SECONDS` does **not** need revisiting.
+- [x] The 60 s excerpt cap holds on real hardware: 180 s and 300 s tracks take
+      the same time, so runtime is flat with track length as intended.
+
+**New finding — cold start costs ~12 s.** The first analysis after a pod starts
+takes **~15.5 s**; every call after it takes ~3.2 s, with identical input:
+
+    call 1:  15.50s  bpm=129.3
+    call 2:   3.24s  bpm=129.3
+    call 3:   3.25s  bpm=129.3
+    call 4:   3.23s  bpm=129.3
+
+This is librosa's numba JIT compiling on first use. It is one-off per process,
+but it means the first visitor after any deploy, restart or scale-up waits ~15 s
+— and it is the only measured case that breaks the 10 s budget.
+
+- [ ] Warm the JIT during `lifespan` by analysing a short synthetic clip at
+      startup, so the cost lands before the pod reports ready rather than on a
+      user. Keep it behind the readiness probe.
 
 ### 1.5 Security headers
 
@@ -208,10 +239,10 @@ Run against the public hostname before announcing it.
 
 ## Suggested order
 
-1. **1.1** proxy refactor — unblocks and simplifies everything
-2. **1.2** upload cap — the one finding that is dangerous once public
-3. **1.4** measure on the Pi — the number that decides 1.3
-4. **1.3** batch reshaping
+1. ~~**1.1** proxy refactor~~ — done (`ca7a434`)
+2. ~~**1.4** measure on the Pi~~ — done 2026-09-04; ~4.8 s/track, ~12 s cold start
+3. **1.2** upload cap — the one finding that is dangerous once public
+4. **1.3** batch reshaping, now that 1.4 has supplied the number
 5. **2.x** manifests
 6. **3** tunnel, Access-gated
 7. **4** validation, then remove the gate
