@@ -198,7 +198,7 @@ can silently run different code after a restart.
 - [x] Drop `imagePullPolicy: Always` — now `IfNotPresent`, since SHA tags are
       immutable and there is nothing to re-pull
 
-### 2.2 Harden the pods — done, but **not yet smoke-tested**
+### 2.2 Harden the pods — done and smoke-tested
 
 - [x] `readOnlyRootFilesystem: true` on both containers, with an `emptyDir` at
       `/tmp`. The emptyDir uses `medium: Memory`, which also keeps Starlette's
@@ -214,16 +214,36 @@ can silently run different code after a restart.
 - [x] `replicas: 2` on the frontend, with soft pod anti-affinity so the two do
       not land on the same node
 
-**Untested.** `readOnlyRootFilesystem` is the one change here that can crashloop
-a pod, and neither the cluster nor Docker was available to try it. ArgoCD syncs
-this repo with `automated.selfHeal` and `prune`, so it will apply on its own once
-the cluster is back. Run the container read-only locally first:
+**Smoke-tested on the cluster (2026-09-10).** Both images were run as throwaway
+pods on a real node with the hardened `securityContext` before this was pushed,
+because `readOnlyRootFilesystem` is the one change here that can crashloop a pod
+and ArgoCD syncs with `automated.selfHeal`.
 
-    docker run --rm --read-only --tmpfs /tmp \
-      -e NUMBA_CACHE_DIR=/tmp/numba -e HOME=/tmp \
-      luisrr/genreflow-backend:<tag>
+Backend, on `k8s-node3`:
 
-then hit `/healthz` and analyse one file, so the JIT path actually runs.
+    healthz: 200   readyz: 200
+    analyse 1: status=200 wall=  6.53s -> bpm 127.1
+    analyse 2: status=200 wall=  0.71s -> bpm 127.1
+    analyse 3: status=200 wall=  0.71s -> bpm 127.1
+    non-audio: 415
+    numba cache files: 52
+
+Those 52 files are the point: numba really does write a cache at runtime, and
+without `NUMBA_CACHE_DIR` pointed at the tmpfs it would have been writing to a
+read-only path. The 6.53 s → 0.71 s step is the JIT warm-up from item 1.4,
+visible again.
+
+Frontend:
+
+    healthz 200, index 200, app.js per-file: True, bulk call absent: True
+    proxy -> backend: 200 -> bpm 127.1
+    non-allowlisted path: 404
+
+One trap worth recording: the test pod reported `Ready` while nothing was
+listening, because a bare pod has no probes. The real Deployment's
+`startupProbe` (`failureThreshold: 18`, ~3 min) exists precisely because
+importing librosa on a Pi is slow. Do not read `Ready` on a probe-less pod as
+"the app is up".
 
 ### 2.3 Ingress
 
