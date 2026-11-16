@@ -40,6 +40,11 @@ def client():
         yield c
 
 
+def _without_comments(css: str) -> str:
+    """Strip /* ... */ comments, so prose about CSS is not mistaken for CSS."""
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
 # ---------------------------------------------------------------------------
 # Headers are on every response
 # ---------------------------------------------------------------------------
@@ -93,18 +98,46 @@ def test_page_has_no_inline_script_or_style() -> None:
     assert not re.search(r"\son[a-z]+\s*=", html)
 
 
-def test_csp_covers_the_stylesheet_font_import() -> None:
-    """styles.css @imports Google Fonts; style-src/font-src must allow it.
+def test_no_external_assets_and_no_external_csp_hosts() -> None:
+    """The page loads nothing third-party, so the CSP must name nothing third-party.
 
-    If that @import is ever dropped for a self-hosted face, this test is the
-    reminder that the CSP can tighten to 'self'.
+    These move together: adding an external asset means widening the policy and
+    leaking visitor IPs to whoever serves it. This fails on either half.
     """
-    css = STYLES_CSS.read_text()
-    imports = re.findall(r"@import\s+url\(\"(https://[^\"]+)\"", css)
-    assert imports, "expected the Google Fonts @import; tighten the CSP if it is gone"
-    assert all(url.startswith("https://fonts.googleapis.com/") for url in imports)
-    assert "https://fonts.googleapis.com" in frontend.CONTENT_SECURITY_POLICY
-    assert "https://fonts.gstatic.com" in frontend.CONTENT_SECURITY_POLICY
+    css = _without_comments(STYLES_CSS.read_text())
+    assert "@import" not in css
+    assert "fonts.googleapis.com" not in css
+    assert "fonts.gstatic.com" not in css
+
+    html = INDEX_HTML.read_text()
+    assert not re.search(r"(?:href|src)\s*=\s*[\"\']https?://", html)
+
+    assert "http://" not in frontend.CONTENT_SECURITY_POLICY
+    assert "https://" not in frontend.CONTENT_SECURITY_POLICY
+
+
+def test_fonts_are_served_from_this_origin() -> None:
+    """Every @font-face src must be a local path under /static."""
+    css = _without_comments(STYLES_CSS.read_text())
+    srcs = re.findall(r"src:\s*url\(\"([^\"]+)\"\)", css)
+    assert srcs, "expected self-hosted @font-face rules"
+    assert all(s.startswith("/static/fonts/") for s in srcs)
+    for s in srcs:
+        assert (REPO_ROOT / "frontend" / s.lstrip("/")).is_file(), f"missing font file: {s}"
+
+
+def test_font_files_are_actually_woff2() -> None:
+    """Guard against committing an HTML error page under a .woff2 name."""
+    for path in (REPO_ROOT / "frontend" / "static" / "fonts").glob("*.woff2"):
+        assert path.read_bytes()[:4] == b"wOF2", f"{path.name} is not a woff2 file"
+
+
+def test_fonts_are_reachable_over_http(client: TestClient) -> None:
+    css = _without_comments(STYLES_CSS.read_text())
+    for src in set(re.findall(r"src:\s*url\(\"([^\"]+)\"\)", css)):
+        res = client.get(src)
+        assert res.status_code == 200
+        assert res.content[:4] == b"wOF2"
 
 
 # ---------------------------------------------------------------------------

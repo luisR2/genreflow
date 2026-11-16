@@ -112,12 +112,24 @@ jobs:
           git commit -m "chore(deploy): pin images to $IMAGE_TAG [skip ci]"
           git push origin HEAD:main
 
-  # Optional: static security scan placeholder
+  # Dependency and IaC scan. This was a placeholder that scanned an empty
+  # workspace -- it had no checkout step, so it reported nothing, and no
+  # exit-code, so it could not have failed the build even if it had.
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: aquasecurity/trivy-action@master
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan dependencies and config (Trivy)
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
+          scan-ref: .
+          # Only gate on what is actually actionable: a HIGH/CRITICAL finding
+          # with a fix available. Unfixed CVEs are reported by the table output
+          # without blocking a release that cannot do anything about them.
+          severity: HIGH,CRITICAL
           ignore-unfixed: true
+          exit-code: '1'
           format: table

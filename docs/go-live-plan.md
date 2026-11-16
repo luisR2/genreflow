@@ -213,8 +213,7 @@ without them.
 The CSP is an allowlist over a `default-src 'none'` baseline:
 
     default-src 'none'; script-src 'self';
-    style-src 'self' https://fonts.googleapis.com;
-    font-src https://fonts.gstatic.com; img-src 'self' data:;
+    style-src 'self'; font-src 'self'; img-src 'self' data:;
     connect-src 'self'; form-action 'none';
     frame-ancestors 'none'; base-uri 'none'
 
@@ -224,13 +223,13 @@ and would be asserting something it cannot honour — set HSTS at Cloudflare.
 `Permissions-Policy` went in alongside, denying camera, microphone, geolocation,
 accelerometer and USB, none of which the UI uses.
 
-**The CSP is wider than it should be, for one reason:** `styles.css:1` pulls
-Space Grotesk from Google Fonts with an `@import`, which is what forces
-`style-src` and `font-src` to name external hosts. Self-hosting that face would
-collapse both to `'self'` and stop leaking every visitor's IP to a third party —
-worth doing before launch, but it is a design change rather than a header
-change, so it is not bundled here. `test_csp_covers_the_stylesheet_font_import`
-fails loudly if the `@import` disappears, as the prompt to tighten the policy.
+**Every directive is now `'self'` or `'none'`.** Space Grotesk was being pulled
+from Google Fonts with an `@import`, which handed every visitor's IP to a third
+party on page load and forced `style-src`/`font-src` to allowlist two external
+hosts. The face is now self-hosted from `/static/fonts/` (variable font, one
+`woff2` per subset, ~41 KB for latin + latin-ext, OFL-1.1), so the page loads
+nothing third-party and the policy names nothing third-party. Tests enforce both
+halves together, since they move together.
 
 **Backend docs:** `docs_url`, `redoc_url` and `openapi_url` are now `None`
 unless `GENREFLOW_ENABLE_DOCS` is truthy; `make dev` sets it, so local work is
@@ -379,7 +378,12 @@ Run against the public hostname before announcing it.
 - [ ] Back up the SealedSecrets private key from `kube-system` — without it, no
       secret in this repo can be decrypted after a cluster rebuild
 - [ ] Document a rollback: revert the image tag in the overlay, let ArgoCD sync
-- [ ] Trivy already runs in CI; act on findings before launch
+- [x] ~~Trivy already runs in CI~~ — **it did not.** The `security-scan` job had
+      no `actions/checkout`, so it scanned an empty workspace and reported
+      nothing, and no `exit-code`, so it could not have failed the build anyway.
+      It was labelled a placeholder and never finished. Now fixed: it checks the
+      repo out and gates on HIGH/CRITICAL findings that have a fix available
+- [ ] Act on whatever that scan reports on its first real run
 
 ---
 

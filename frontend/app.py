@@ -40,20 +40,21 @@ PROXYABLE_PREDICT_PATHS = frozenset({"file", "files"})
 # baseline so anything not listed is refused. Kept in step with what the page
 # actually loads:
 #   script-src  -- /static/app.js only; the page has no inline script
-#   style-src   -- /static/styles.css, plus fonts.googleapis.com, which that
-#                  file pulls in with an @import on line 1
-#   font-src    -- the font files googleapis.com's stylesheet points at
+#   style-src   -- /static/styles.css
+#   font-src    -- /static/fonts/*.woff2, self-hosted rather than pulled from
+#                  Google Fonts, which is what lets both of these stay 'self'
 #   connect-src -- the uploads, which go to this service's own /api/predict/*
 #
-# Dropping the Google Fonts @import in favour of a self-hosted face would let
-# style-src and font-src collapse to 'self' and stop leaking visitor IPs to a
-# third party. Not done here: it is a design change, not a header change.
+# Every directive is 'self' or 'none': the page loads nothing from a third
+# party, so nothing third-party needs naming here. Keep it that way -- adding
+# an external asset means widening this, and leaking visitor IPs to whoever
+# serves it.
 CONTENT_SECURITY_POLICY = "; ".join(
     (
         "default-src 'none'",
         "script-src 'self'",
-        "style-src 'self' https://fonts.googleapis.com",
-        "font-src https://fonts.gstatic.com",
+        "style-src 'self'",
+        "font-src 'self'",
         "img-src 'self' data:",
         "connect-src 'self'",
         "form-action 'none'",
