@@ -81,6 +81,8 @@ User -> Frontend (port 3000) -> /api proxy -> Backend (port 8080) -> Audio Proce
 - `GENREFLOW_WARMUP` - Backend startup warm-up (default: on). Set to `0`/`false`/`no`/`off`
   to skip it. The warm-up analyses a synthetic clip during `lifespan` so librosa's numba
   JIT compiles before the pod reports ready; the test suite disables it.
+- `GENREFLOW_ENABLE_DOCS` - Serve the backend's `/docs`, `/redoc` and `/openapi.json`
+  (default: off). `make dev` enables it for local work; the cluster does not.
 
 ## Branching Strategy
 

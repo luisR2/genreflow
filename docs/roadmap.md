@@ -16,7 +16,10 @@
 > Go-live sequencing lives in [go-live-plan.md](./go-live-plan.md).
 > Exposure method: Cloudflare Tunnel.
 
-- [ ] Test security concerns
+- [x] Test security concerns — upload limits, magic-byte validation, pod
+      hardening and security headers are done (see the go-live plan). The
+      remaining checks are the exposure and load ones in Phase 4, which need
+      the public hostname to exist first.
 - [x] Reduce processing time to <10s per track
 
 ### Tempo analysis performance

@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,45 @@ UPSTREAM_TIMEOUT = float(os.getenv("GENREFLOW_UPSTREAM_TIMEOUT", "120"))
 # Backend paths the proxy is willing to forward to, as an explicit allowlist so
 # this cannot be used as a general-purpose proxy into the cluster.
 PROXYABLE_PREDICT_PATHS = frozenset({"file", "files"})
+
+# Content Security Policy, written as an allowlist over a `default-src 'none'`
+# baseline so anything not listed is refused. Kept in step with what the page
+# actually loads:
+#   script-src  -- /static/app.js only; the page has no inline script
+#   style-src   -- /static/styles.css, plus fonts.googleapis.com, which that
+#                  file pulls in with an @import on line 1
+#   font-src    -- the font files googleapis.com's stylesheet points at
+#   connect-src -- the uploads, which go to this service's own /api/predict/*
+#
+# Dropping the Google Fonts @import in favour of a self-hosted face would let
+# style-src and font-src collapse to 'self' and stop leaking visitor IPs to a
+# third party. Not done here: it is a design change, not a header change.
+CONTENT_SECURITY_POLICY = "; ".join(
+    (
+        "default-src 'none'",
+        "script-src 'self'",
+        "style-src 'self' https://fonts.googleapis.com",
+        "font-src https://fonts.gstatic.com",
+        "img-src 'self' data:",
+        "connect-src 'self'",
+        "form-action 'none'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+    )
+)
+
+# Applied to every response, including the JSON the proxy relays back, where
+# `nosniff` matters most. No HSTS: TLS terminates at Cloudflare, so the origin
+# only ever speaks plain HTTP and would be asserting something it cannot honour.
+SECURITY_HEADERS = {
+    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    # Redundant with frame-ancestors above, for browsers that honour only one.
+    "X-Frame-Options": "DENY",
+    # The UI reads local files the user picks; it needs no device access.
+    "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), microphone=(), usb=()",
+}
 
 FRONTEND_DIR = Path(__file__).parent
 STATIC_DIR = FRONTEND_DIR / "static"
@@ -58,6 +97,24 @@ app = FastAPI(
     openapi_url=None,
     lifespan=lifespan,
 )
+
+@app.middleware("http")
+async def add_security_headers(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Attach the security headers to every response this service returns.
+
+    Args:
+        request: The incoming request.
+        call_next: The next handler in the middleware chain.
+
+    Returns:
+        The downstream response, with the security headers set.
+    """
+    response = await call_next(request)
+    response.headers.update(SECURITY_HEADERS)
+    return response
+
 
 # Serve static assets (JS/CSS)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

@@ -1,0 +1,141 @@
+"""Security header and API-docs exposure tests (go-live plan item 1.5)."""
+
+import importlib
+import re
+from pathlib import Path
+
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+from backend.tests.test_frontend_proxy import _load_frontend_app
+
+frontend = _load_frontend_app()
+
+# `from backend.app import app` hands back the FastAPI instance rather than the
+# module, because `backend.app.app` the object shadows `backend.app.app` the
+# module on the package. import_module is unambiguous.
+backend_app_module = importlib.import_module("backend.app.app")
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+STYLES_CSS = REPO_ROOT / "frontend" / "static" / "styles.css"
+INDEX_HTML = REPO_ROOT / "frontend" / "templates" / "index.html"
+
+EXPECTED_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+}
+
+
+@pytest.fixture()
+def client():
+    """Yield a frontend TestClient with the upstream backend mocked."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"filename": "x.wav", "bpm": 128.0, "analysis_time": 0.1})
+
+    with TestClient(frontend.app) as c:
+        c.app.state.client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        yield c
+
+
+# ---------------------------------------------------------------------------
+# Headers are on every response
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("path", ["/", "/healthz", "/static/app.js", "/static/styles.css"])
+def test_security_headers_present(client: TestClient, path: str) -> None:
+    res = client.get(path)
+    assert res.status_code == 200
+    for header, value in EXPECTED_HEADERS.items():
+        assert res.headers[header] == value
+    assert "default-src 'none'" in res.headers["Content-Security-Policy"]
+
+
+def test_security_headers_on_proxied_json(client: TestClient) -> None:
+    """nosniff matters most on the JSON the proxy relays back."""
+    res = client.post("/api/predict/file", files={"file": ("x.wav", b"RIFF", "audio/wav")})
+    assert res.status_code == 200
+    assert res.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_security_headers_on_error_responses(client: TestClient) -> None:
+    """A rejected path must not be a way to get a response without the headers."""
+    res = client.post("/api/predict/not-allowed", files={"file": ("x.wav", b"RIFF", "audio/wav")})
+    assert res.status_code == 404
+    assert res.headers["X-Frame-Options"] == "DENY"
+    assert "default-src 'none'" in res.headers["Content-Security-Policy"]
+
+
+# ---------------------------------------------------------------------------
+# The CSP has to match what the page actually loads
+# ---------------------------------------------------------------------------
+
+
+def test_csp_directives(client: TestClient) -> None:
+    csp = client.get("/").headers["Content-Security-Policy"]
+    directives = dict((part.split(" ", 1) + [""])[:2] for part in (p.strip() for p in csp.split(";")) if part)
+    assert directives["default-src"] == "'none'"
+    assert directives["script-src"] == "'self'"
+    assert directives["connect-src"] == "'self'"
+    assert directives["frame-ancestors"] == "'none'"
+    assert directives["base-uri"] == "'none'"
+    assert directives["form-action"] == "'none'"
+
+
+def test_page_has_no_inline_script_or_style() -> None:
+    """script-src 'self' holds only while nothing on the page is inline."""
+    html = INDEX_HTML.read_text()
+    assert not re.search(r"<script(?![^>]*\bsrc=)", html)
+    assert "<style" not in html
+    assert not re.search(r"\son[a-z]+\s*=", html)
+
+
+def test_csp_covers_the_stylesheet_font_import() -> None:
+    """styles.css @imports Google Fonts; style-src/font-src must allow it.
+
+    If that @import is ever dropped for a self-hosted face, this test is the
+    reminder that the CSP can tighten to 'self'.
+    """
+    css = STYLES_CSS.read_text()
+    imports = re.findall(r"@import\s+url\(\"(https://[^\"]+)\"", css)
+    assert imports, "expected the Google Fonts @import; tighten the CSP if it is gone"
+    assert all(url.startswith("https://fonts.googleapis.com/") for url in imports)
+    assert "https://fonts.googleapis.com" in frontend.CONTENT_SECURITY_POLICY
+    assert "https://fonts.gstatic.com" in frontend.CONTENT_SECURITY_POLICY
+
+
+# ---------------------------------------------------------------------------
+# Backend API docs are opt-in
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+def test_backend_docs_disabled_by_default(monkeypatch, path: str) -> None:
+    monkeypatch.delenv(backend_app_module.DOCS_ENV_VAR, raising=False)
+    module = importlib.reload(backend_app_module)
+    with TestClient(module.app) as c:
+        assert c.get(path).status_code == 404
+
+
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+def test_backend_docs_enabled_by_env(monkeypatch, path: str) -> None:
+    monkeypatch.setenv(backend_app_module.DOCS_ENV_VAR, "1")
+    module = importlib.reload(backend_app_module)
+    with TestClient(module.app) as c:
+        assert c.get(path).status_code == 200
+
+
+def test_backend_module_restored_for_other_tests(monkeypatch) -> None:
+    """Reloading the module above must not leave the suite with a stale app."""
+    monkeypatch.delenv(backend_app_module.DOCS_ENV_VAR, raising=False)
+    module = importlib.reload(backend_app_module)
+    assert module.app.openapi_url is None
+
+
+def test_frontend_docs_stay_disabled(client: TestClient) -> None:
+    """The UI never served a schema and must not start."""
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert client.get(path).status_code == 404

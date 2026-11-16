@@ -20,12 +20,39 @@ logger = logging.getLogger(__name__)
 # exists to keep librosa's ~12s JIT compilation off the first real request. Tests
 # disable it, since they have no use for it and it would slow every fixture.
 WARMUP_ENV_VAR = "GENREFLOW_WARMUP"
-_FALSY = frozenset({"0", "false", "no", "off"})
+
+# Set to a truthy value to serve /docs, /redoc and /openapi.json. Off by
+# default: the backend is ClusterIP-only and reachable solely through the
+# frontend's path-allowlisted proxy, so these are already unreachable from
+# outside. Keeping them off anyway means a regression in the allowlist, or a
+# stray port-forward, does not also hand over a map of the API. `make dev`
+# turns them back on for local work.
+DOCS_ENV_VAR = "GENREFLOW_ENABLE_DOCS"
+
+_FALSY = frozenset({"0", "false", "no", "off", ""})
+
+
+def _env_flag(name: str, *, default: str) -> bool:
+    """Return the boolean value of an environment flag.
+
+    Args:
+        name: Environment variable to read.
+        default: Value to assume when the variable is unset.
+
+    Returns:
+        False for the recognised falsy spellings, True otherwise.
+    """
+    return os.getenv(name, default).strip().lower() not in _FALSY
 
 
 def _warmup_enabled() -> bool:
     """Return whether the predictor should warm up during startup."""
-    return os.getenv(WARMUP_ENV_VAR, "1").strip().lower() not in _FALSY
+    return _env_flag(WARMUP_ENV_VAR, default="1")
+
+
+def _docs_enabled() -> bool:
+    """Return whether the OpenAPI schema and its UIs should be served."""
+    return _env_flag(DOCS_ENV_VAR, default="0")
 
 
 @asynccontextmanager
@@ -48,13 +75,15 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     application.state.predictor = None
 
 
+_docs = _docs_enabled()
+
 app = FastAPI(
     title="GenreFlow",
     version="0.1.0",
     description="Music genre classification API using deep learning",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
     lifespan=lifespan,
 )
 

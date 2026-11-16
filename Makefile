@@ -11,7 +11,9 @@ POETRY_RUN := cd backend && $(POETRY) run
 CMD ?= uvicorn backend.app.app:app --port 8080 --log-config logging_config.json
 
 # Dev server command (override with: make dev CMD_DEV="uvicorn backend.app.app:app --reload")
-CMD_DEV ?= uvicorn backend.app.app:app --reload --port 8080 --log-config logging_config.json
+# GENREFLOW_ENABLE_DOCS is off in the image and turned on here, so /docs is
+# available while developing without being served in the cluster.
+CMD_DEV ?= GENREFLOW_ENABLE_DOCS=1 uvicorn backend.app.app:app --reload --port 8080 --log-config logging_config.json
 
 # Frontend dev server command (override with: make frontend FRONTEND_CMD="uvicorn app:app --reload --port 3000")
 FRONTEND_CMD ?= uvicorn app:app --reload --host 0.0.0.0 --port 3000 --log-config ../logging_config.json

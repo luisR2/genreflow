@@ -196,14 +196,57 @@ again on every restart, redeploy and scale-up — not just the first ever start.
 The two items interact, and the tmpfs is still the right call: the alternative
 is writing a cache to the nodes' SD cards.
 
-### 1.5 Security headers
+### 1.5 Security headers — **done**
 
-- [ ] Add CSP, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and
+- [x] Add CSP, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and
       `X-Frame-Options: DENY` to frontend responses
-- [ ] Confirm the frontend still has `docs_url=None` (it does — `frontend/app.py:22`)
-- [ ] Decide whether the **backend** should keep `/docs`, `/redoc` and
-      `/openapi.json` enabled (`backend/app/app.py:33-35`). Behind the proxy they
-      are unreachable publicly; disable them anyway if you want defence in depth.
+- [x] Confirm the frontend still has `docs_url=None` (it does)
+- [x] Decide whether the **backend** should keep `/docs`, `/redoc` and
+      `/openapi.json` enabled. **Decided: off by default**, behind
+      `GENREFLOW_ENABLE_DOCS`
+
+A single middleware in `frontend/app.py` sets the headers on *every* response,
+including the JSON the proxy relays back — where `nosniff` matters most — and
+including error responses, so a rejected path is not a way to get a response
+without them.
+
+The CSP is an allowlist over a `default-src 'none'` baseline:
+
+    default-src 'none'; script-src 'self';
+    style-src 'self' https://fonts.googleapis.com;
+    font-src https://fonts.gstatic.com; img-src 'self' data:;
+    connect-src 'self'; form-action 'none';
+    frame-ancestors 'none'; base-uri 'none'
+
+`frame-ancestors` and `X-Frame-Options` are deliberately redundant. There is no
+HSTS: TLS terminates at Cloudflare, so the origin only ever speaks plain HTTP
+and would be asserting something it cannot honour — set HSTS at Cloudflare.
+`Permissions-Policy` went in alongside, denying camera, microphone, geolocation,
+accelerometer and USB, none of which the UI uses.
+
+**The CSP is wider than it should be, for one reason:** `styles.css:1` pulls
+Space Grotesk from Google Fonts with an `@import`, which is what forces
+`style-src` and `font-src` to name external hosts. Self-hosting that face would
+collapse both to `'self'` and stop leaking every visitor's IP to a third party —
+worth doing before launch, but it is a design change rather than a header
+change, so it is not bundled here. `test_csp_covers_the_stylesheet_font_import`
+fails loudly if the `@import` disappears, as the prompt to tighten the policy.
+
+**Backend docs:** `docs_url`, `redoc_url` and `openapi_url` are now `None`
+unless `GENREFLOW_ENABLE_DOCS` is truthy; `make dev` sets it, so local work is
+unchanged. Behind the path-allowlisted proxy they were already unreachable from
+outside — this is defence in depth, so that a regression in the allowlist or a
+stray port-forward does not also hand over a map of the API.
+
+**Checked while in here, no change needed:** `frontend/static/app.js` builds
+every result row with `textContent` and uses `innerHTML` only to clear a
+container, so filenames and backend error strings cannot inject markup.
+
+**Verified** against live servers, not just `TestClient`: all five headers
+present on `/`, `/healthz`, both static assets, proxied JSON and a 404 from the
+proxy; `/docs`, `/redoc` and `/openapi.json` return 404 by default and 200 with
+`GENREFLOW_ENABLE_DOCS=1`; and the page was loaded in Chrome, which rendered it
+fully with the webfont and reported no CSP violations.
 
 ---
 
