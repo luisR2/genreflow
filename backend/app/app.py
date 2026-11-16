@@ -1,6 +1,7 @@
 """FastAPI application entrypoint for the GenreFlow service."""
 
 import logging
+import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
@@ -15,12 +16,34 @@ from backend.app.schemas import HealthResponse, ReadinessResponse
 
 logger = logging.getLogger(__name__)
 
+# Set to a falsy value to skip the startup warm-up. On by default: the warm-up
+# exists to keep librosa's ~12s JIT compilation off the first real request. Tests
+# disable it, since they have no use for it and it would slow every fixture.
+WARMUP_ENV_VAR = "GENREFLOW_WARMUP"
+_FALSY = frozenset({"0", "false", "no", "off"})
+
+
+def _warmup_enabled() -> bool:
+    """Return whether the predictor should warm up during startup."""
+    return os.getenv(WARMUP_ENV_VAR, "1").strip().lower() not in _FALSY
+
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application startup and shutdown lifecycle."""
     configure_logging()
-    application.state.predictor = Predictor.load()
+    predictor = Predictor.load()
+
+    # Warm up before publishing the predictor, so readiness is never reported
+    # while the JIT cost is still outstanding. The server does not accept
+    # requests until this context manager yields; the startup probe covers the
+    # wait.
+    if _warmup_enabled():
+        await predictor.warm_up()
+    else:
+        logger.info("Predictor warm-up disabled via %s", WARMUP_ENV_VAR)
+
+    application.state.predictor = predictor
     yield
     application.state.predictor = None
 

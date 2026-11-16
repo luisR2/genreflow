@@ -164,9 +164,37 @@ This is librosa's numba JIT compiling on first use. It is one-off per process,
 but it means the first visitor after any deploy, restart or scale-up waits ~15 s
 — and it is the only measured case that breaks the 10 s budget.
 
-- [ ] Warm the JIT during `lifespan` by analysing a short synthetic clip at
+- [x] Warm the JIT during `lifespan` by analysing a short synthetic clip at
       startup, so the cost lands before the pod reports ready rather than on a
       user. Keep it behind the readiness probe.
+
+**Done.** `Predictor.warm_up()` analyses a 6 s synthetic 120 BPM click track
+during `lifespan`, before the predictor is published to `app.state` — so
+`readyz` cannot report ready while the JIT cost is still outstanding. Warm-up
+failures are logged and swallowed; an optimisation must not stop the service
+from starting. `GENREFLOW_WARMUP=0` disables it, which is how the test suite
+avoids paying for it on every fixture.
+
+Measured on the dev machine with an **empty** numba cache, which is what a pod
+actually starts with:
+
+| | First request | Steady state |
+|---|---|---|
+| Without warm-up | **0.88 s** | 0.17 s |
+| With warm-up | **0.20 s** | 0.18 s |
+
+The warm-up itself takes 0.70 s and compiles the same 52 cache files the
+cluster smoke test in 2.2 counted. Dev-machine steady state is ~19x faster than
+the Pi's (0.17 s vs 3.24 s), so the ~12 s the Pi loses to JIT should land in
+startup instead of on the first visitor. **Not yet re-measured on the Pi** — the
+cluster is powered off.
+
+**Why this is not a one-off cost per pod image:** item 2.2 points
+`NUMBA_CACHE_DIR` at the `/tmp` emptyDir, which is `medium: Memory`. That cache
+is discarded on every pod start, so without the warm-up the JIT penalty is paid
+again on every restart, redeploy and scale-up — not just the first ever start.
+The two items interact, and the tmpfs is still the right call: the alternative
+is writing a cache to the nodes' SD cards.
 
 ### 1.5 Security headers
 

@@ -70,6 +70,18 @@ MIN_ONSET_ENERGY = 1e-6
 # the benchmark material, so it is opt-in rather than always-on.
 DEFAULT_USE_HPSS = False
 
+# Startup warm-up. librosa's numba kernels are JIT-compiled on first use, which
+# costs ~12s on a Raspberry Pi and otherwise lands on whichever request arrives
+# first after a pod starts -- the one measured case that breaks the 10s budget.
+# Analysing a synthetic clip at startup moves that cost ahead of readiness.
+#
+# Compilation is per-process, not per-sample, so the clip only has to be long
+# enough to reach the tempo code: just over MIN_TEMPO_WINDOW_SECONDS. Resampling
+# is deliberately not exercised -- librosa 0.10 resamples through soxr, which is
+# C rather than numba, so there is nothing there to compile.
+WARMUP_SECONDS = 6.0
+WARMUP_BPM = 120.0
+
 
 @dataclass
 class PredictorConfig:
@@ -190,6 +202,75 @@ class Predictor:
         analysis_time = time.monotonic() - start_time
         logger.debug("Analysed %s in %.2fs -> %s BPM", filename, analysis_time, bpm)
         return BPMResult(filename=filename, bpm=bpm, analysis_time=analysis_time)
+
+    @staticmethod
+    def _warmup_signal(
+        sr: int, secs: float = WARMUP_SECONDS, bpm: float = WARMUP_BPM
+    ) -> npt.NDArray[np.float32]:
+        """Synthesize a short percussive click track at a known tempo.
+
+        Args:
+            sr: Sample rate to generate at.
+            secs: Clip length in seconds.
+            bpm: Tempo of the generated beat.
+
+        Returns:
+            A normalised mono signal with a clear onset on every beat.
+        """
+        n = int(secs * sr)
+        y = np.zeros(n, dtype=np.float32)
+
+        click_len = int(0.1 * sr)
+        t = np.arange(click_len, dtype=np.float32) / sr
+        click = (np.sin(2 * np.pi * 60.0 * t) * np.exp(-t * 30.0)).astype(np.float32)
+
+        step = max(1, int(round(sr * 60.0 / bpm)))
+        for start in range(0, n, step):
+            end = min(start + click_len, n)
+            y[start:end] += click[: end - start]
+
+        peak = float(np.max(np.abs(y)))
+        if peak > 0:
+            y /= peak
+        return y
+
+    async def warm_up(self) -> float | None:
+        """Analyse a synthetic clip so librosa's JIT compiles before traffic arrives.
+
+        Called during startup, ahead of the readiness probe, so the one-off
+        compilation cost is paid by the pod rather than by the first visitor.
+
+        Failures are logged and swallowed: a warm-up is an optimisation, and a
+        broken one must not stop the service from starting.
+
+        Returns:
+            The tempo estimated for the synthetic clip, or None if the warm-up
+            did not complete.
+        """
+        start_time = time.monotonic()
+        try:
+            y = self._warmup_signal(self.sr)
+            bpm = await asyncio.to_thread(
+                partial(
+                    Predictor.estimate_bpm,
+                    y,
+                    sr=self.sr,
+                    max_analysis_seconds=self.config.max_analysis_seconds,
+                    hop_length=self.config.tempo_hop_length,
+                    use_hpss=self.config.use_hpss,
+                )
+            )
+        except Exception:
+            logger.warning("Predictor warm-up failed; the first request will pay the JIT cost", exc_info=True)
+            return None
+
+        logger.info(
+            "Predictor warm-up completed in %.2fs (synthetic %.0f BPM clip -> %s)",
+            time.monotonic() - start_time,
+            WARMUP_BPM,
+            bpm,
+        )
+        return bpm
 
     @staticmethod
     def _centre_excerpt(y: npt.NDArray[np.float32], sr: int, max_seconds: float) -> npt.NDArray[np.float32]:

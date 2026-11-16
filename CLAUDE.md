@@ -78,6 +78,9 @@ User -> Frontend (port 3000) -> /api proxy -> Backend (port 8080) -> Audio Proce
 - `GENREFLOW_API_BASE_URL` - Backend URL the frontend proxies to (default: `http://localhost:8080`).
   Internal only; never a public address.
 - `GENREFLOW_UPSTREAM_TIMEOUT` - Frontend proxy timeout in seconds (default: `120`)
+- `GENREFLOW_WARMUP` - Backend startup warm-up (default: on). Set to `0`/`false`/`no`/`off`
+  to skip it. The warm-up analyses a synthetic clip during `lifespan` so librosa's numba
+  JIT compiles before the pod reports ready; the test suite disables it.
 
 ## Branching Strategy
 
