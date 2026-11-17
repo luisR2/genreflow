@@ -11,4 +11,4 @@ resources:
 # revert the tag, let ArgoCD apply it.
 images:
   - name: luisrr/genreflow-backend
-    newTag: a4fbdaf
+    newTag: c887fe1
