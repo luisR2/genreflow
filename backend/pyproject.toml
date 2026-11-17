@@ -17,7 +17,7 @@ scipy = "^1"
 librosa = "^0.10"
 soundfile = "^0.12"
 pydantic = "^2"
-python-multipart = "^0.0.20"
+python-multipart = ">=0.0.30,<0.1"
 filetype = "^1.2"
 httpx = "^0.28"
 
