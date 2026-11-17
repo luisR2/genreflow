@@ -383,7 +383,20 @@ Run against the public hostname before announcing it.
       nothing, and no `exit-code`, so it could not have failed the build anyway.
       It was labelled a placeholder and never finished. Now fixed: it checks the
       repo out and gates on HIGH/CRITICAL findings that have a fix available
-- [ ] Act on whatever that scan reports on its first real run
+- [x] Act on whatever that scan reports on its first real run — the first real
+      run found **10 CVEs** (1 CRITICAL, 9 HIGH) in `backend/poetry.lock`. All
+      ten are now cleared across two commits:
+      `python-multipart` 0.0.20 → 0.0.34 (path traversal + 2 DoS, in the
+      multipart path every upload takes), `certifi` → 2026.10.23 (the CRITICAL —
+      emSign roots with compromised intermediate CA keys), `urllib3` → 2.8.0,
+      `msgpack` → 1.2.4, and `starlette` 0.46.2 → 1.10.0 via FastAPI
+      0.115.14 → 0.163.1, which clears the `Range` DoS, the `StaticFiles` SSRF
+      and the `request.form()` limits issue.
+
+      `python-multipart` had been stuck because `^0.0.20` means
+      `>=0.0.20,<0.0.21` in Poetry — for a `0.0.x` version the caret permits no
+      patches at all, so three CVEs were silently refused. Audited: no other
+      `^0.0.x` constraints remain.
 
 ---
 
