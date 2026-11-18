@@ -23,8 +23,9 @@ make frontend             # Run frontend on port 3000 (set GENREFLOW_API_BASE_UR
 # Testing & Linting
 make test                 # Run pytest
 make test PYTEST_ARGS="-k test_name"  # Run specific test
-make lint                 # Run ruff linter
-make format               # Format code with ruff
+make lint                 # Run ruff linter (backend + frontend)
+make format               # Format code with ruff (backend + frontend)
+make typecheck            # Run mypy over backend/app and frontend, as CI does
 
 # Docker
 make compose-up           # Start both services locally
@@ -68,7 +69,9 @@ User -> Frontend (port 3000) -> /api proxy -> Backend (port 8080) -> Audio Proce
 
 ## Code Style
 
-- Python 3.11+, strict typing enforced via MyPy
+- Python 3.11+, strict typing enforced via MyPy. CI gates on `mypy app ../frontend`
+  (run it locally with `make typecheck`). Tests are excluded via the mypy `exclude`
+  in `backend/pyproject.toml`, matching the "except tests" rule below.
 - Ruff for linting (line length 110, Google-style docstrings)
 - All functions require type annotations (except tests)
 - Tests live in `backend/tests/`

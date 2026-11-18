@@ -35,13 +35,23 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev --no-interaction --no-ansi
 
+      # `.` is backend/ because of working-directory, so the frontend was
+      # never linted -- it is named explicitly here. --config is required:
+      # ruff discovers config per file by walking up, and there is no
+      # pyproject.toml above frontend/, so it would silently fall back to
+      # ruff's defaults instead of this project's rules.
       - name: Lint and format (ruff)
         run: |
-          poetry run ruff check .
-          poetry run ruff format --check .
+          poetry run ruff check --config pyproject.toml . ../frontend
+          poetry run ruff format --check --config pyproject.toml . ../frontend
           
+      # This ran as `mypy backend` with working-directory: backend, i.e.
+      # backend/backend, which does not exist -- and `|| true` swallowed the
+      # failure, so the gate never once ran. Both halves are fixed; the paths
+      # are the application code, since tests are exempt from the annotation
+      # rules (see the mypy `exclude` in backend/pyproject.toml).
       - name: Type check (mypy)
-        run: poetry run mypy backend || true  # relax early on
+        run: poetry run mypy app ../frontend
 
       - name: Run tests
         run: poetry run pytest -q

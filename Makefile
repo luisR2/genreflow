@@ -1,7 +1,7 @@
 
 # Common Poetry targets
 # Phony targets
-.PHONY: install install-hooks list check update run dev frontend shell test lint format venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all argocd-apply kubectl-status compose-up compose-down docker-run-frontend predict-file predict-files-bulk shutdown-pis bench
+.PHONY: install install-hooks list check update run dev frontend shell test lint format typecheck venv help docker-build-backend docker-build-frontend docker-build-all docker-run-backend docker-stop docker-login docker-push-backend docker-push-frontend docker-push-all argocd-apply kubectl-status compose-up compose-down docker-run-frontend predict-file predict-files-bulk shutdown-pis bench
 
 POETRY ?= poetry
 POETRY_CMD := cd backend && $(POETRY)
@@ -69,11 +69,20 @@ bench:
 test:
 	$(POETRY_RUN) pytest $(PYTEST_ARGS)
 
+# RUFF_PATHS is "backend ../frontend" from inside backend/. --config is needed
+# because ruff finds config by walking up from each file, and there is no
+# pyproject.toml above frontend/, so it would otherwise use ruff's defaults.
+RUFF_ARGS := --config pyproject.toml . ../frontend
+
 lint:
-	$(POETRY_RUN) ruff check .
+	$(POETRY_RUN) ruff check $(RUFF_ARGS)
 
 format:
-	$(POETRY_RUN) ruff format .
+	$(POETRY_RUN) ruff format $(RUFF_ARGS)
+
+# Same paths CI gates on. Tests are excluded in backend/pyproject.toml.
+typecheck:
+	$(POETRY_RUN) mypy app ../frontend
 
 venv:
 	@$(POETRY_CMD) env info --path || (echo "No virtualenv found. Run 'make install' first." && exit 1)
@@ -114,8 +123,9 @@ help:
 	@echo "  make shell       -> open an interactive Poetry shell (activates venv)"
 	@echo "  make test        -> run tests via pytest (poetry run pytest $(PYTEST_ARGS))"
 	@echo "  make bench [BENCH_ARGS=--real=PATH] -> benchmark BPM analysis time against the <10s budget"
-	@echo "  make lint        -> run ruff to lint the repository (poetry run ruff check .)"
-	@echo "  make format      -> run ruff formatter (poetry run ruff format .)"
+	@echo "  make lint        -> run ruff over backend and frontend (poetry run ruff check $(RUFF_ARGS))"
+	@echo "  make format      -> run ruff formatter over backend and frontend"
+	@echo "  make typecheck   -> run mypy over backend/app and frontend, as CI does"
 	@echo "  make venv PYTHON=.. -> show poetry venv path or set the environment Python (poetry env use $(PYTHON))"
 	@echo "  make docker-build-backend -> build the backend Docker image (BACKEND_IMAGE=$(BACKEND_IMAGE), IMAGE_TAG=$(IMAGE_TAG))"
 	@echo "  make docker-build-frontend -> build the frontend Docker image (FRONTEND_IMAGE=$(FRONTEND_IMAGE), IMAGE_TAG=$(IMAGE_TAG))"

@@ -99,6 +99,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
 @app.middleware("http")
 async def add_security_headers(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]

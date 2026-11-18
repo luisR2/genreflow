@@ -84,13 +84,20 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
-plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
+# Tests are exempt from the annotation rules -- same carve-out as ruff's
+# per-file-ignores for "tests/*" and the "except tests" line in CLAUDE.md.
+# This keeps a bare `mypy .` in step with what CI gates on.
+exclude = ["^tests/"]
+# numpy.typing.mypy_plugin was deprecated in NumPy 2.3 and is slated for
+# removal; NumPy ships its own py.typed, so the plugin is redundant.
+plugins = ["pydantic.mypy"]
 
 # Dependencies that don't have type hints
 [[tool.mypy.overrides]]
 module = [
     "librosa.*",
     "soundfile.*",
+    "filetype.*",
 ]
 ignore_missing_imports = true
 
