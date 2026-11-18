@@ -8,4 +8,4 @@ resources:
 # See the backend overlay: the tag is pinned and CI-maintained, not `:latest`.
 images:
   - name: luisrr/genreflow-frontend
-    newTag: 57bc2b9
+    newTag: 5e8f001
